@@ -5,6 +5,7 @@ from django.urls import path
 from django.utils import timezone
 from django.contrib import messages
 from django.core.mail import EmailMessage, get_connection
+from django.db.models import Q
 from .models import Kullanici, Ayarlar, Cihaz
 
 
@@ -48,11 +49,40 @@ def mail_dogrula_action(modeladmin, request, queryset):
     modeladmin.message_user(request, mesaj, messages.SUCCESS)
 
 
+class SonBaglantiFiltre(admin.SimpleListFilter):
+    title = "Son bağlantı"
+    parameter_name = "son_baglanti"
+
+    def lookups(self, request, model_admin):
+        return [
+            ('hic', 'Hiç bağlanmamış'),
+            ('7', '7 gündür bağlanmayan'),
+            ('15', '15 gündür bağlanmayan'),
+            ('30', '30 gündür bağlanmayan'),
+            ('60', '60 gündür bağlanmayan'),
+            ('son1', 'Son 24 saatte bağlanan'),
+        ]
+
+    def queryset(self, request, queryset):
+        v = self.value()
+        simdi = timezone.now()
+        if v == 'hic':
+            return queryset.filter(son_gorulme__isnull=True)
+        if v in ('7', '15', '30', '60'):
+            sinir = simdi - datetime.timedelta(days=int(v))
+            # Hiç bağlanmamış olanlar da "bağlanmayan" sayılır.
+            return queryset.filter(Q(son_gorulme__lt=sinir) | Q(son_gorulme__isnull=True))
+        if v == 'son1':
+            return queryset.filter(son_gorulme__gte=simdi - datetime.timedelta(hours=24))
+        return queryset
+
+
 @admin.register(Kullanici)
 class KullaniciAdmin(admin.ModelAdmin):
-    list_display = ('email', 'mail_dogrulandi', 'premium_mi', 'trial_bitis', 'olusturma_tarihi', 'cihaz_sayisi')
+    list_display = ('email', 'olusturma_tarihi', 'son_gorulme', 'trial_bitis', 'cihaz_sayisi', 'mail_dogrulandi', 'premium_mi')
     search_fields = ('email',)
-    list_filter = ('premium_mi', 'mail_dogrulandi')
+    list_filter = ('premium_mi', 'mail_dogrulandi', SonBaglantiFiltre)
+    readonly_fields = ('son_gorulme',)
     inlines = [CihazInline]
     actions = [trial_uzat_action, mail_dogrula_action, mail_gonder_action]
 

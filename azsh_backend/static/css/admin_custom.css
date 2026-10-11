@@ -1585,3 +1585,57 @@ fieldset.module .form-row .datetimeshortcuts a:hover {
         width: 100%;
     }
 }
+
+
+/* ===== DÜZELTME: takvim/saat <dialog> kutuları =====
+   Yukarıdaki ".module { display:flex }" kuralı, Django 6'nın <dialog class="calendarbox module">
+   elemanlarının varsayılan "display:none" değerini eziyordu. Bu yüzden kapalı olan tüm takvim ve saat
+   kutuları mobilde (position:fixed ile) ekranın ortasında üst üste görünüyordu. */
+dialog.calendarbox:not([open]),
+dialog.clockbox:not([open]) {
+    display: none !important;
+}
+
+dialog.calendarbox[open],
+dialog.clockbox[open] {
+    display: block !important;
+    padding: 0;
+}
+
+/* .module tr / .module h2 / .module a stilleri takvimi ve saati bozmasın */
+.calendarbox tr,
+.clockbox tr {
+    display: table-row !important;
+    padding: 0 !important;
+    border-bottom: 0 !important;
+    background: transparent !important;
+}
+
+.calendarbox caption,
+.calendarbox h2,
+.clockbox h2 {
+    display: block !important;
+    min-height: 0 !important;
+    text-align: center;
+}
+
+.calendarbox a,
+.clockbox a {
+    font-size: 14px;
+}
+
+.clockbox .timelist {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.clockbox .timelist li {
+    padding: 0;
+    border-bottom: 1px solid #334155;
+}
+
+.clockbox .timelist a {
+    display: block;
+    padding: 12px 10px;
+}

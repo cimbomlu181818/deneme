@@ -17,6 +17,8 @@ class Kullanici(models.Model):
 
     olusturma_tarihi = models.DateTimeField(auto_now_add=True, verbose_name="Oluşturma Tarihi")
 
+    son_gorulme = models.DateTimeField(null=True, blank=True, db_index=True, verbose_name="Son Bağlantı")
+
     basarisiz_giris_sayisi = models.PositiveIntegerField(default=0, verbose_name="Başarısız Giriş Sayısı")
     kilit_bitis_zamani = models.DateTimeField(null=True, blank=True, verbose_name="Kilit Bitiş Zamanı")
 

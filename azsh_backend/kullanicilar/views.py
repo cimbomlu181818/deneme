@@ -269,6 +269,8 @@ def giris_yap(request):
     if not kullanici.mail_dogrulandi:
         return JsonResponse({'hata': 'Hesabınız henüz doğrulanmamış.'}, status=403)
 
+    Kullanici.objects.filter(pk=kullanici.pk).update(son_gorulme=timezone.now())
+
     mevcut_cihaz = Cihaz.objects.filter(kullanici=kullanici, cihaz_id=cihaz_id).first()
 
     if mevcut_cihaz is None:
@@ -318,6 +320,9 @@ def erisim_kontrol(request):
         kullanici = Kullanici.objects.get(email=email)
     except Kullanici.DoesNotExist:
         return JsonResponse({'hata': 'Kullanıcı bulunamadı.'}, status=404)
+
+    # Son bağlantı zamanını kaydet (uygulama her açıldığında buraya istek atar).
+    Kullanici.objects.filter(pk=kullanici.pk).update(son_gorulme=timezone.now())
 
     if not kullanici.mail_dogrulandi:
         return JsonResponse({'bakim_modu': False, 'erisim': False, 'durum': 'mail_dogrulanmadi'})
