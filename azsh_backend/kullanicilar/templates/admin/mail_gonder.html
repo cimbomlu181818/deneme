@@ -1,0 +1,30 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<h1>Seçilenlere Mail Gönder</h1>
+<p>Seçili {{ kullanicilar|length }} kullanıcıya mail gidecek (en fazla {{ limit }}):</p>
+<ul>
+    {% for k in kullanicilar %}
+        <li>{{ k.email }}</li>
+    {% endfor %}
+</ul>
+
+<form method="post">
+    {% csrf_token %}
+    {% for k in kullanicilar %}
+        <input type="hidden" name="secili_id" value="{{ k.id }}">
+    {% endfor %}
+
+    <p>
+        <label for="konu"><b>Konu</b></label><br>
+        <input type="text" id="konu" name="konu" value="{{ konu|default:'' }}" style="width:100%; max-width:600px;" maxlength="150" required>
+    </p>
+    <p>
+        <label for="mesaj"><b>Mesaj</b></label><br>
+        <textarea id="mesaj" name="mesaj" rows="10" style="width:100%; max-width:600px;" required>{{ mesaj|default:'' }}</textarea>
+    </p>
+
+    <input type="submit" value="Gönder" class="default" onclick="return confirm('Mail seçili kullanıcıların hepsine gönderilecek. Emin misin?');">
+    <a href="../" class="button" style="margin-left:10px;">İptal</a>
+</form>
+{% endblock %}
