@@ -49,7 +49,10 @@ public class Dpad {
     private bar oynaticiBar;
     private boolean aktif = false;
     private boolean panelYeniAcildi = false;
+    // GEZİNİLEN tip: paneller açıkken üzerinde gezinilen içerik tipi
     private String aktifIcerikTipi = Icerikpaneli.TIP_CANLI_TV;
+    // OYNAYAN tip: şu an çalan yayının tipi (panel kapalıyken tuşlar buna göre çalışır)
+    private String oynayanIcerikTipi = Icerikpaneli.TIP_CANLI_TV;
 
     public interface KanalDegistirmeCallback {
         void sonrakiKanalaGec();
@@ -131,7 +134,7 @@ public class Dpad {
         switch (aktifPanel) {
             case HICBIRI:
                 if (barAcik) {
-                    if (Icerikpaneli.TIP_CANLI_TV.equals(aktifIcerikTipi)) {
+                    if (Icerikpaneli.TIP_CANLI_TV.equals(oynayanIcerikTipi)) {
                         aciklamalar.addAll(Arrays.asList("Zaman çubuğu", "Barı kapat", "Butonlar arasında sol", "Butonlar arasında sağ", "Butona bas", "Barı kapat"));
                     } else {
                         aciklamalar.addAll(Arrays.asList("Seek bar'a geçer", "Barı kapat", "Butonlar arasında sol", "Butonlar arasında sağ", "Butona bas", "Barı kapat"));
@@ -208,6 +211,12 @@ public class Dpad {
         this.aktifIcerikTipi = tip != null ? tip : Icerikpaneli.TIP_CANLI_TV;
         guncelleKisayol();
         System.out.println("🎮 Dpad.aktifIcerikTipi → " + this.aktifIcerikTipi);
+    }
+
+    public void setOynayanIcerikTipi(String tip) {
+        this.oynayanIcerikTipi = tip != null ? tip : Icerikpaneli.TIP_CANLI_TV;
+        guncelleKisayol();
+        System.out.println("🎮 Dpad.oynayanIcerikTipi → " + this.oynayanIcerikTipi);
     }
 
     public void setOynaticiBar(bar bar) {
@@ -343,12 +352,12 @@ public class Dpad {
 
     private boolean handleUp() {
         if (aktifPanel == AktifPanel.HICBIRI) {
-            if (Icerikpaneli.TIP_CANLI_TV.equals(aktifIcerikTipi)) {
+            if (Icerikpaneli.TIP_CANLI_TV.equals(oynayanIcerikTipi)) {
                 System.out.println("⬆️ HICBIRI + LIVE → sonraki kanala geç");
                 if (kanalDegistirmeCallback != null) kanalDegistirmeCallback.sonrakiKanalaGec();
                 return true;
             }
-            System.out.println("⬆️ HICBIRI + " + aktifIcerikTipi + " → işlem yok");
+            System.out.println("⬆️ HICBIRI + " + oynayanIcerikTipi + " → işlem yok");
             return true;
         }
 
@@ -386,12 +395,12 @@ public class Dpad {
 
     private boolean handleDown() {
         if (aktifPanel == AktifPanel.HICBIRI) {
-            if (Icerikpaneli.TIP_CANLI_TV.equals(aktifIcerikTipi)) {
+            if (Icerikpaneli.TIP_CANLI_TV.equals(oynayanIcerikTipi)) {
                 System.out.println("⬇️ HICBIRI + LIVE → önceki kanala geç");
                 if (kanalDegistirmeCallback != null) kanalDegistirmeCallback.oncekiKanalaGec();
                 return true;
             }
-            System.out.println("⬇️ HICBIRI + " + aktifIcerikTipi + " → işlem yok");
+            System.out.println("⬇️ HICBIRI + " + oynayanIcerikTipi + " → işlem yok");
             return true;
         }
 
@@ -585,16 +594,11 @@ public class Dpad {
                 }
 
                 else {
-                    if (Icerikpaneli.TIP_DIZI.equals(aktifIcerikTipi)) {
-                        diziPaneli.setMarginStart(0);
-                        View v = diziPaneli.getPanelView();
-                        if (v != null) v.setVisibility(View.VISIBLE);
-                        diziPaneli.goster();
-                        aktifPanel = AktifPanel.SADECE_DIZI;
-                        if (diziPaneli.getAdapter() != null)
-                            diziPaneli.getAdapter().setPanelAcik(true);
-                        guncelleKisayol();
-                        focusDiziPanelineVer(false);
+                    // Panel kapalıyken açılış OYNAYAN içeriğe göre yapılır (gezinilen tipe göre değil).
+                    // Hiçbir şey çalmıyorsa ve gezinilen tip dizi ise eski davranış korunur.
+                    if (!anakontrol.oynayanIcerikVarMi()
+                            && Icerikpaneli.TIP_DIZI.equals(aktifIcerikTipi)) {
+                        diziPaneliDirektAc();
                     } else {
                         anakontrol.panelAcilirkenAktifOgeYukle();
                     }
@@ -1182,6 +1186,19 @@ public class Dpad {
                 }
             }, 100);
         }, 150);
+    }
+
+    // Dizi panelini mevcut haliyle (son gezilen kategori) doğrudan açar.
+    public void diziPaneliDirektAc() {
+        diziPaneli.setMarginStart(0);
+        View v = diziPaneli.getPanelView();
+        if (v != null) v.setVisibility(View.VISIBLE);
+        diziPaneli.goster();
+        aktifPanel = AktifPanel.SADECE_DIZI;
+        if (diziPaneli.getAdapter() != null)
+            diziPaneli.getAdapter().setPanelAcik(true);
+        guncelleKisayol();
+        focusDiziPanelineVer(false);
     }
 
     public void diziPaneliAramadanAc(String diziAdi) {

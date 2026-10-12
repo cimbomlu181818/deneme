@@ -87,7 +87,12 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
     private M3UManager    m3uManager;
     private ChannelRepository channelRepository;
     private Handler           mainHandler;
+    // GEZİNİLEN içerik tipi: paneller açıkken kullanıcının üzerinde gezindiği tip.
     private String  aktifIcerikTipi        = Icerikpaneli.TIP_CANLI_TV;
+    // OYNAYAN içerik tipi: şu an ekranda çalan yayının tipi. Gezinmeden etkilenmez.
+    private String  oynayanIcerikTipi      = Icerikpaneli.TIP_CANLI_TV;
+    // OYNAYAN içeriğin kategorisi (dizi paneline geri dönerken kullanılır)
+    private String  oynayanKategori        = null;
     private String  aktifOynaticSourceName = null;
     private String  aktifStreamUrl         = null;
     private String  aktifKanalAdi          = "";
@@ -373,6 +378,7 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
             logTipDegisimi("BolumSecimDinleyici", aktifIcerikTipi, Icerikpaneli.TIP_DIZI);
             aktifIcerikTipi = Icerikpaneli.TIP_DIZI;
             aktifDiziAdi = dizi.getAd() != null ? dizi.getAd() : "";
+            oynayanTipiAyarla(Icerikpaneli.TIP_DIZI, aktifKategori);
             kanalFavoridenAcildi = FavorilerYoneticisi.FAVORI_KATEGORI_ADI.equals(aktifKategori);
             bolumOynatPozisyonKontrollu(dizi, sezon, bolum, barMetni);
         });
@@ -897,7 +903,7 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
         }
         icerikPaneli.setAktifTip(icerikTipi);
         if (dpad != null) dpad.setAktifIcerikTipi(icerikTipi);
-        if (oynaticiBar != null) oynaticiBar.setAktifIcerikTipi(icerikTipi);
+        // NOT: oynaticiBar'a gezinilen tip GÖNDERİLMEZ; bar sadece oynayan tipi bilir.
         if (Icerikpaneli.TIP_CANLI_TV.equals(icerikTipi)) {
             if (metadataPanel != null) metadataPanel.gizle();
         }
@@ -1880,6 +1886,7 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
         zorunluAcilisDongusuIptal();
         if (oynaticiBar != null) oynaticiBar.setAktifIcerikTipi(kanal.getContentType());
         aktifIcerikTipi        = kanal.getContentType();
+        oynayanTipiAyarla(kanal.getContentType(), kanal.getCategory());
         aktifOynaticSourceName = kanal.getSourceName();
         aktifStreamUrl         = kanal.getUrl();
         if (!stalkerCozumdenGeliyor) {
@@ -2152,7 +2159,6 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
         aktifIcerikTipi = tip;
         icerikPaneli.setAktifTip(tip);
         if (dpad != null) dpad.setAktifIcerikTipi(tip);
-        if (oynaticiBar != null) oynaticiBar.setAktifIcerikTipi(tip);
         channelRepository.loadCategoriesWithSource(null, tip,
                 new ChannelRepository.OnKategoriItemsLoadedListener() {
                     @Override
@@ -2200,10 +2206,15 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
     private void aramaDiziPaneliAc(String diziAdi, Channel temsilKanal) {
         if (diziAdi == null) return;
         String kategori = temsilKanal != null ? temsilKanal.getCategory() : null;
+        diziPaneliniKategoriyleAc(diziAdi, kategori);
+    }
+
+    // Dizi panelini verilen kategoriyle kurar ve (varsa) diziAdi üzerine focus verir.
+    // diziAdi null olabilir: bu durumda sadece panel açılır, focus verilmez.
+    private void diziPaneliniKategoriyleAc(String diziAdi, String kategori) {
         aktifIcerikTipi = Icerikpaneli.TIP_DIZI;
         icerikPaneli.setAktifTip(Icerikpaneli.TIP_DIZI);
         if (dpad != null) dpad.setAktifIcerikTipi(Icerikpaneli.TIP_DIZI);
-        if (oynaticiBar != null) oynaticiBar.setAktifIcerikTipi(Icerikpaneli.TIP_DIZI);
         channelRepository.loadCategoriesWithSource(null, "SERIES",
                 new ChannelRepository.OnKategoriItemsLoadedListener() {
                     @Override
@@ -2213,7 +2224,7 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
                             kategoriPaneli.setAktifIcerikTipi(Icerikpaneli.TIP_DIZI);
                             kategoriPaneli.kategorileriGuncelle(filtrelenmis);
                             if (kategori != null) kategoriPaneli.setAktifKategori(kategori);
-                            diziPaneli.switchToSeriesMode(null, kategori);
+                            diziPaneli.kategoriFiltrele(kategori);
                             mainHandler.postDelayed(() -> {
                                 if (dpad != null) dpad.diziPaneliAramadanAc(diziAdi);
                             }, 400);
@@ -2222,7 +2233,7 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
                     }
                     @Override public void onError(Exception e) {
                         mainHandler.post(() -> {
-                            diziPaneli.switchToSeriesMode(null, kategori);
+                            diziPaneli.kategoriFiltrele(kategori);
                             mainHandler.postDelayed(() -> {
                                 if (dpad != null) dpad.diziPaneliAramadanAc(diziAdi);
                             }, 400);
@@ -2239,6 +2250,14 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
             kutuGorunurlugunuGuncelle();
             return;
         }
+        // Oynayan içerik bir dizi bölümüyse: bölüm URL'si kanal tablosunda olmayabilir.
+        // Bu yüzden veritabanına bakmadan, oynayan dizinin kategorisiyle dizi panelini aç.
+        if (Icerikpaneli.TIP_DIZI.equals(oynayanIcerikTipi)
+                && aktifDiziAdi != null && !aktifDiziAdi.isEmpty()) {
+            if (oynayanKategori != null) aktifKategori = oynayanKategori;
+            diziPaneliniKategoriyleAc(aktifDiziAdi, oynayanKategori);
+            return;
+        }
         String aramaUrl = (aktifDbUrl != null && !aktifDbUrl.isEmpty()) ? aktifDbUrl : aktifStreamUrl;
         channelRepository.loadChannelByUrl(aramaUrl,
                 new ChannelRepository.OnChannelLoadedListener() {
@@ -2246,9 +2265,7 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
                     public void onChannelLoaded(Channel channel) {
                         mainHandler.post(() -> {
                             if (channel == null) {
-                                ilkAcilisOtomatikOynat = true;
-                                loadDefaultChannels();
-                                kutuGorunurlugunuGuncelle();
+                                calanBulunamadiListeyiAc();
                                 return;
                             }
                             String tip      = channel.getContentType();
@@ -2257,15 +2274,19 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
                             tekli.add(channel);
                             List<Channel> gorunen = gizliKanallariFiltreele(tekli);
                             if (gorunen.isEmpty()) {
-                                ilkAcilisOtomatikOynat = true;
-                                loadDefaultChannels();
-                                kutuGorunurlugunuGuncelle();
+                                calanBulunamadiListeyiAc();
                                 return;
                             }
                             aktifIcerikTipi = tip;
                             icerikPaneli.setAktifTip(tip);
                             if (dpad != null) dpad.setAktifIcerikTipi(tip);
-                            if (oynaticiBar != null) oynaticiBar.setAktifIcerikTipi(tip);
+                            if (!Icerikpaneli.TIP_DIZI.equals(tip)) {
+                                // Gezinme tipi oynayana döndü: başlık ve favori yıldızı da eşitlensin
+                                if (kanalPaneli != null) kanalPaneli.baslikGuncelle(tip);
+                                if (kanalPaneli != null && kanalPaneli.getAdapter() != null) {
+                                    kanalPaneli.getAdapter().setFavorilerYoneticisi(favorilerYoneticisi, tip);
+                                }
+                            }
                             if (Icerikpaneli.TIP_DIZI.equals(tip)) {
                                 String diziAdiTemp;
                                 try {
@@ -2296,9 +2317,7 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
                                                 });
                                             }
                                             @Override public void onError(Exception e) {
-                                                ilkAcilisOtomatikOynat = true;
-                                                loadDefaultChannels();
-                                                kutuGorunurlugunuGuncelle();
+                                                calanBulunamadiListeyiAc();
                                             }
                                         });
                             } else {
@@ -2356,17 +2375,13 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
                                                                     });
                                                                 }
                                                                 @Override public void onError(Exception e) {
-                                                                    ilkAcilisOtomatikOynat = true;
-                                                                    loadDefaultChannels();
-                                                                    kutuGorunurlugunuGuncelle();
+                                                                    calanBulunamadiListeyiAc();
                                                                 }
                                                             });
                                                 });
                                             }
                                             @Override public void onError(Exception e) {
-                                                ilkAcilisOtomatikOynat = true;
-                                                loadDefaultChannels();
-                                                kutuGorunurlugunuGuncelle();
+                                                calanBulunamadiListeyiAc();
                                             }
                                         });
                             }
@@ -2374,12 +2389,62 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
                     }
                     @Override public void onError(Exception e) {
                         mainHandler.post(() -> {
-                            ilkAcilisOtomatikOynat = true;
-                            loadDefaultChannels();
-                            kutuGorunurlugunuGuncelle();
+                            calanBulunamadiListeyiAc();
                         });
                     }
                 });
+    }
+
+    // Oynayan içerik listede bulunamadığında: HİÇBİR ŞEY otomatik oynatılmaz.
+    // Sadece oynayan tipe göre ilgili panel açılır, çalan yayın kesilmez.
+    private void calanBulunamadiListeyiAc() {
+        System.out.println("ℹ️ [ANA] Çalan içerik listede bulunamadı → otomatik oynatma YOK, panel açılıyor | oynayanTip=" + oynayanIcerikTipi);
+        ilkAcilisOtomatikOynat = false;
+        final String tip = oynayanIcerikTipi != null ? oynayanIcerikTipi : Icerikpaneli.TIP_CANLI_TV;
+        final String diziAdi = (aktifDiziAdi != null && !aktifDiziAdi.isEmpty()) ? aktifDiziAdi : null;
+        if (Icerikpaneli.TIP_DIZI.equals(tip)) {
+            if (oynayanKategori != null) {
+                aktifKategori = oynayanKategori;
+                diziPaneliniKategoriyleAc(diziAdi, oynayanKategori);
+            } else if (Icerikpaneli.TIP_DIZI.equals(aktifIcerikTipi) && dpad != null) {
+                dpad.diziPaneliDirektAc();
+            } else {
+                diziPaneliniKategoriyleAc(diziAdi, null);
+            }
+            kutuGorunurlugunuGuncelle();
+            return;
+        }
+        aktifIcerikTipi = tip;
+        icerikPaneli.setAktifTip(tip);
+        if (dpad != null) dpad.setAktifIcerikTipi(tip);
+        kategoriPaneli.setAktifIcerikTipi(tip);
+        if (kanalPaneli != null) kanalPaneli.baslikGuncelle(tip);
+        if (kanalPaneli != null && kanalPaneli.getAdapter() != null) {
+            kanalPaneli.getAdapter().setFavorilerYoneticisi(favorilerYoneticisi, tip);
+        }
+        aktifKategori = null;
+        loadDefaultChannels();
+        if (dpad != null) dpad.kanalPaneliAramadanAc(null);
+        kutuGorunurlugunuGuncelle();
+    }
+
+    // Oynayan içerik tipini tek yerden ayarlar. Dpad (panel kapalıyken tuş davranışı)
+    // ve oynatma çubuğu (seek bar / canlı DVR) bu değere göre çalışır.
+    private void oynayanTipiAyarla(String tip, String kategori) {
+        String t = tip != null ? tip : Icerikpaneli.TIP_CANLI_TV;
+        oynayanIcerikTipi = t;
+        oynayanKategori   = kategori;
+        if (dpad != null) dpad.setOynayanIcerikTipi(t);
+        if (oynaticiBar != null) oynaticiBar.setAktifIcerikTipi(t);
+    }
+
+    public String getOynayanIcerikTipi() {
+        return oynayanIcerikTipi;
+    }
+
+    // Şu an bir yayın çalıyor mu?
+    public boolean oynayanIcerikVarMi() {
+        return aktifStreamUrl != null && !aktifStreamUrl.isEmpty();
     }
 
     public void onResume() {
@@ -2560,6 +2625,7 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
         final String url     = kanal.getUrl();
         final String diziAdi = kanal.getName() != null ? kanal.getName() : "";
         sonDiziUrl = url;
+        oynayanTipiAyarla(Icerikpaneli.TIP_DIZI, kanal.getCategory());
 
 
         String barMetni;
@@ -2658,6 +2724,7 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
 
     private void oynatKanalDirekt(Channel kanal, long baslangicPozisyonMs) {
         if (kanal == null || mediaPlayer == null || libVLC == null) return;
+        oynayanTipiAyarla(kanal.getContentType(), kanal.getCategory());
         aktifKanalAdi = kanal.getName() != null ? kanal.getName() : "";
         try {
             if (metadataPanel != null) metadataPanel.gizle();
@@ -3102,16 +3169,16 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
         kisayolKutusu.setLayoutParams(lp);
     }
     public boolean aktifIcerikFavoriMi() {
-        String anahtar = Icerikpaneli.TIP_DIZI.equals(aktifIcerikTipi) ? aktifDiziAdi : aktifStreamUrl;
+        String anahtar = Icerikpaneli.TIP_DIZI.equals(oynayanIcerikTipi) ? aktifDiziAdi : aktifStreamUrl;
         if (anahtar == null || anahtar.isEmpty() || favorilerYoneticisi == null) return false;
-        return favorilerYoneticisi.isFavori(aktifIcerikTipi, anahtar);
+        return favorilerYoneticisi.isFavori(oynayanIcerikTipi, anahtar);
     }
 
     public void favoriToggleAktifIcerik() {
         if (favorilerYoneticisi == null) return;
-        String anahtar = Icerikpaneli.TIP_DIZI.equals(aktifIcerikTipi) ? aktifDiziAdi : aktifStreamUrl;
+        String anahtar = Icerikpaneli.TIP_DIZI.equals(oynayanIcerikTipi) ? aktifDiziAdi : aktifStreamUrl;
         if (anahtar == null || anahtar.isEmpty()) return;
-        boolean eklendi = favorilerYoneticisi.toggle(aktifIcerikTipi, anahtar);
+        boolean eklendi = favorilerYoneticisi.toggle(oynayanIcerikTipi, anahtar);
         if (oynaticiBar != null) oynaticiBar.favoriDurumunuGuncelle(eklendi);
     }
 
