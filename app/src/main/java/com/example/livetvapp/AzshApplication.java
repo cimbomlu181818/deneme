@@ -19,6 +19,14 @@ public class AzshApplication extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
+        // Android Studio'dan denerken (debug) imza kontrolu atlanir.
+        // Release surumde kontrol aynen calisir.
+        boolean debugSurum = (getApplicationInfo().flags
+                & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0;
+        if (debugSurum) {
+            Log.w("AzshApplication", "Debug surum: imza kontrolu atlandi.");
+            return;
+        }
         if (!imzaDogruMu()) {
             Log.e("AzshApplication", "APK imzasi beklenenle eslesmiyor. Uygulama kapatiliyor.");
             android.os.Process.killProcess(android.os.Process.myPid());

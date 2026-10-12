@@ -8,9 +8,9 @@ import android.widget.Button;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.RecyclerView;
 public class Dokunmatik {
-    private static final int   UZUN_BASMA_SURE  = 500;   
+    private static final int   UZUN_BASMA_SURE  = 500;
     private static final int   TIKLA_BEKLE_SURE = 120;
-    private static final float SWIPE_ESIK_DP    = 40f;   
+    private static final float SWIPE_ESIK_DP    = 40f;
     private static final float SWIPE_ORAN       = 1.5f;
     private final AppCompatActivity activity;
     private final Dpad              dpad;
@@ -20,7 +20,7 @@ public class Dokunmatik {
     private boolean hareketVar   = false;
     private boolean islemYapildi = false;
     private float   baslangicX, baslangicY;
-    private float   swipeEsikPx; 
+    private float   swipeEsikPx;
 
     private final Runnable tiklamaRunnable = () -> {
         if (!hareketVar && !islemYapildi) {
@@ -78,8 +78,10 @@ public class Dokunmatik {
                     islemYapildi = true;
                     float dx2 = event.getX() - baslangicX;
                     float dy2 = event.getY() - baslangicY;
+                    boolean aramaPaneliAcik = aktifPanel() == Dpad.AktifPanel.ARAMA;
                     handleSwipe(dx2, dy2);
-                    return true;
+                    // Arama panelinde swipe işlem yapmıyor; ACTION_UP'ı tüketme ki ScrollView kaydırmayı düzgün bitirsin
+                    return !aramaPaneliAcik;
                 }
                 return false;
             case MotionEvent.ACTION_CANCEL:
@@ -184,9 +186,9 @@ public class Dokunmatik {
         }
         if (panel == Dpad.AktifPanel.HICBIRI) {
             if (asagi) {
-                gonder(KeyEvent.KEYCODE_DPAD_DOWN); 
+                gonder(KeyEvent.KEYCODE_DPAD_DOWN);
             } else {
-                gonder(KeyEvent.KEYCODE_DPAD_UP);   
+                gonder(KeyEvent.KEYCODE_DPAD_UP);
             }
             return;
         }
@@ -224,7 +226,7 @@ public class Dokunmatik {
         if (dpad == null) return false;
         Dpad.AktifPanel panel = dpad.getAktifPanel();
         if (panel != Dpad.AktifPanel.AYARLAR) return false;
-        return false; 
+        return false;
     }
 
     private void gonderSagSol(int keyCode) {

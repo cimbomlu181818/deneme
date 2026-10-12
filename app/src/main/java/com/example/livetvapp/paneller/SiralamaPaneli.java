@@ -41,12 +41,25 @@ public class SiralamaPaneli {
     private PanelKapandiCallback kapandiCallback;
     public void setPanelKapandiCallback(PanelKapandiCallback cb) { this.kapandiCallback = cb; }
     public interface KategoriGuncelleCallback {
-        void onKategoriSirasiDegisti(String turKodu, List<String> yeniSira);
+        // Her öğe kategori adı + hangi M3U'dan geldiği (kaynakAdi) bilgisini taşır
+        void onKategoriSirasiDegisti(String turKodu, List<KategoriItem> yeniSira);
     }
     private KategoriGuncelleCallback kategoriGuncelleCallback;
     public void setKategoriGuncelleCallback(KategoriGuncelleCallback cb) {
         this.kategoriGuncelleCallback = cb;
     }
+    // Kanal (veya favori) sırası değişince ana ekrandaki kanal listesine haber verir.
+    // Panel kapanınca (Evet/Hayır sonrası) tür + kategori başına bir kez çağrılır.
+    public interface KanalSirasiCallback {
+        void onKanalSirasiDegisti(String turKodu, String kategoriAdi);
+    }
+    private KanalSirasiCallback kanalSirasiCallback;
+    public void setKanalSirasiCallback(KanalSirasiCallback cb) {
+        this.kanalSirasiCallback = cb;
+    }
+    // "TUR|Kategori" anahtarları; arka plan thread'lerinden de doldurulur, o yüzden senkronize kullanılır
+    private final LinkedHashSet<String> bekleyenKanalSirasi = new LinkedHashSet<>();
+    private boolean geriAlmaSuruyor = false;
     private final List<SiralamaItem> flatListe = new ArrayList<>();
     private final Map<String, List<KategoriGirisi>> tumKategoriler = new LinkedHashMap<>();
     private final Map<String, List<Channel>> tumKanallar = new LinkedHashMap<>();
@@ -54,6 +67,8 @@ public class SiralamaPaneli {
     private boolean veriYuklendi = false;
     private final Map<String, String>  siralamaSnapshot = new LinkedHashMap<>();
     private final Map<Long, Integer> kanalPozSnapshot = new LinkedHashMap<>();
+    // Tür -> gizli olanlar DAHİL tam kategori sırası ("m3u###kategori" anahtarları)
+    private final Map<String, List<String>> tamKategoriSirasi = new LinkedHashMap<>();
     public SiralamaPaneli(AppCompatActivity activity) {
         this.activity    = activity;
         this.mainHandler = new Handler(Looper.getMainLooper());
@@ -154,12 +169,44 @@ public class SiralamaPaneli {
         panelView.clearFocus();
         veriYuklendi = false;
         tumKategoriler.clear();
+        tamKategoriSirasi.clear();
         tumKanallar.clear();
         favoriDiziAdlari.clear();
         siralamaSnapshot.clear();
         kanalPozSnapshot.clear();
         System.out.println("🧹 SiralamaPaneli cache temizlendi");
+        if (geriAlmaSuruyor) {
+            // "Hayır" dendi: DB'deki eski pozisyonlar geri yazılıyor, bildirim o iş bitince gidecek
+            System.out.println("[SIRA-LOG] KAPAT: geri alma sürüyor, ana liste bildirimi geri alma bitince gönderilecek");
+        } else {
+            kanalSirasiBildir("kapat");
+        }
         if (kapandiCallback != null) kapandiCallback.onKapandi();
+    }
+    private void kanalSirasiIsaretle(String turKodu, String kategoriAdi) {
+        if (turKodu == null || kategoriAdi == null) return;
+        synchronized (bekleyenKanalSirasi) {
+            bekleyenKanalSirasi.add(turKodu + "|" + kategoriAdi);
+        }
+        System.out.println("[SIRA-LOG] ANA-BİLDİRİM işaretlendi: " + turKodu + "|" + kategoriAdi);
+    }
+    private void kanalSirasiBildir(String kaynak) {
+        final List<String> gonderilecek;
+        synchronized (bekleyenKanalSirasi) {
+            gonderilecek = new ArrayList<>(bekleyenKanalSirasi);
+            bekleyenKanalSirasi.clear();
+        }
+        System.out.println("[SIRA-LOG] ANA-BİLDİRİM gönderiliyor (" + kaynak + "): "
+                + gonderilecek.size() + " kayıt " + gonderilecek
+                + (kanalSirasiCallback == null ? " (callback YOK)" : ""));
+        if (kanalSirasiCallback == null) return;
+        for (String anahtar : gonderilecek) {
+            int ayrac = anahtar.indexOf('|');
+            if (ayrac < 0) continue;
+            final String tur = anahtar.substring(0, ayrac);
+            final String kat = anahtar.substring(ayrac + 1);
+            mainHandler.post(() -> kanalSirasiCallback.onKanalSirasiDegisti(tur, kat));
+        }
     }
     private void dbdenYukle() {
         new Thread(() -> {
@@ -171,12 +218,14 @@ public class SiralamaPaneli {
                 for (String turKodu : TUR_KODLARI) {
                     List<KategoriGirisi> katListesi = new ArrayList<>();
                     List<String> kayitliSira = kaydedilenSirayiYukle(turKodu);
+                    List<KategoriGirisi> hepsiGirisleri = new ArrayList<>();
                     if (m3uListesi != null && !m3uListesi.isEmpty()) {
                         List<KategoriGirisi> tumKatGirisleri = new ArrayList<>();
                         for (M3UItem m3u : m3uListesi) {
                             List<String> kats = db.channelDao().getCategoriesByType(m3u.getName(), turKodu);
                             for (String kat : kats) {
                                 String gizleKey = m3u.getName() + "|" + kat;
+                                hepsiGirisleri.add(new KategoriGirisi(kat, m3u.getName()));
                                 if (!gizliKategoriler.contains(gizleKey)) {
                                     tumKatGirisleri.add(new KategoriGirisi(kat, m3u.getName()));
                                 }
@@ -214,6 +263,22 @@ public class SiralamaPaneli {
                         }
                     }
                     tumKategoriler.put(turKodu, katListesi);
+                    // Gizli kategoriler dahil tam sıra (kayıt sırasında yerlerini korumak için)
+                    List<String> tamSira = new ArrayList<>();
+                    if (kayitliSira != null) {
+                        for (String kk : kayitliSira) {
+                            for (KategoriGirisi kg : hepsiGirisleri) {
+                                if ((kg.m3uAdi + KAYIT_AYRAC + kg.ad).equals(kk)) { tamSira.add(kk); break; }
+                            }
+                        }
+                    }
+                    for (KategoriGirisi kg : hepsiGirisleri) {
+                        String kk = kg.m3uAdi + KAYIT_AYRAC + kg.ad;
+                        if (!tamSira.contains(kk)) tamSira.add(kk);
+                    }
+                    tamKategoriSirasi.put(turKodu, tamSira);
+                    System.out.println("[SIRA-LOG] YÜKLEME kategori tam sıra [" + turKodu + "] (*=gizli): "
+                            + katLogu(tamSira, gizliKategoriler));
                 }
                 veriYuklendi = true;
                 System.out.println("✅ SiralamaPaneli DB yükleme tamamlandı");
@@ -277,6 +342,9 @@ public class SiralamaPaneli {
                     }
                 }
                 tumKanallar.put(key, gorunenler);
+                System.out.println("[SIRA-LOG] YÜKLEME kanal [" + turKodu + "/" + kategoriAdi + "] gizli="
+                        + (hepsi != null ? hepsi.size() - gorunenler.size() : 0)
+                        + "\n   DB SIRASI (*=gizli): " + kanalLogu(hepsi != null ? hepsi : new ArrayList<Channel>(), gizliUrller));
                 for (Channel ch : gorunenler) {
                     if (!kanalPozSnapshot.containsKey(ch.getId())) {
                         kanalPozSnapshot.put(ch.getId(), ch.getPosition());
@@ -527,8 +595,8 @@ public class SiralamaPaneli {
             com.example.livetvapp.database.KategoriCache.getInstance().put(turKodu, kategoriItems);
             if (kategoriGuncelleCallback != null) {
                 final String finalTurKodu = turKodu;
-                final List<String> finalSirali = new ArrayList<>();
-                for (KategoriGirisi kg : yeniKatListesi) finalSirali.add(kg.ad);
+                final List<KategoriItem> finalSirali = new ArrayList<>(kategoriItems);
+                System.out.println("[SIRA-LOG] KATEGORİ-BİLDİRİM [" + turKodu + "] kaynakla: " + kategoriItemLogu(finalSirali));
                 mainHandler.post(() ->
                         kategoriGuncelleCallback.onKategoriSirasiDegisti(finalTurKodu, finalSirali));
             }
@@ -542,7 +610,7 @@ public class SiralamaPaneli {
                     String key = finalTur + "|" + finalKat;
                     List<Channel> gercekKanallar = tumKanallar.get(key);
                     if (gercekKanallar == null) return;
-                    int grupPoz = 0;
+                    List<Long> yeniSiraIdleri = new ArrayList<>();
                     for (SiralamaItem item : flatListe) {
                         if (item.getTip() == SiralamaItem.TIP_DIZI
                                 && finalTur.equals(item.getTur())
@@ -550,13 +618,14 @@ public class SiralamaPaneli {
                             String diziAdi = item.getAd();
                             for (Channel ch : gercekKanallar) {
                                 if (diziAdiniCikar(ch.getName()).equals(diziAdi)) {
-                                    db.channelDao().updateChannelPosition(ch.getId(), grupPoz);
-                                    grupPoz++;
+                                    yeniSiraIdleri.add(ch.getId());
                                 }
                             }
                         }
                     }
+                    pozisyonlariYaz(db, finalTur, finalKat, yeniSiraIdleri);
                     System.out.println("✅ Dizi sırası DB'ye kaydedildi: " + finalKat);
+                    kanalSirasiIsaretle(finalTur, finalKat);
                 } catch (Exception e) {
                     System.out.println("❌ Dizi pozisyon kayıt hatası: " + e.getMessage());
                 }
@@ -565,14 +634,21 @@ public class SiralamaPaneli {
             new Thread(() -> {
                 try {
                     AppDatabase db = AppDatabase.getInstance(activity);
-                    int poz = 0;
+                    List<Long> yeniSiraIdleri = new ArrayList<>();
                     for (SiralamaItem item : flatListe) {
                         if (item.getTip() == SiralamaItem.TIP_KANAL
                                 && turKodu.equals(item.getTur())
                                 && kategoriAdi.equals(item.getKategoriAdi())) {
-                            item.setPozisyon(poz);
-                            db.channelDao().updateChannelPosition(item.getKanalId(), poz);
-                            poz++;
+                            yeniSiraIdleri.add(item.getKanalId());
+                        }
+                    }
+                    Map<Long, Integer> yeniPoz = pozisyonlariYaz(db, turKodu, kategoriAdi, yeniSiraIdleri);
+                    for (SiralamaItem item : flatListe) {
+                        if (item.getTip() == SiralamaItem.TIP_KANAL
+                                && turKodu.equals(item.getTur())
+                                && kategoriAdi.equals(item.getKategoriAdi())) {
+                            Integer p = yeniPoz.get(item.getKanalId());
+                            if (p != null) item.setPozisyon(p);
                         }
                     }
                     String key = turKodu + "|" + kategoriAdi;
@@ -594,6 +670,7 @@ public class SiralamaPaneli {
                         tumKanallar.put(key, yeniSira);
                     }
                     System.out.println("✅ Kanal pozisyonları DB'ye kaydedildi: " + kategoriAdi);
+                    kanalSirasiIsaretle(turKodu, kategoriAdi);
                 } catch (Exception e) {
                     System.out.println("❌ Kanal pozisyon kayıt hatası: " + e.getMessage());
                 }
@@ -631,18 +708,156 @@ public class SiralamaPaneli {
             }, 100);
         }
     }
+    private String kategoriItemLogu(List<KategoriItem> liste) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < liste.size(); i++) {
+            KategoriItem k = liste.get(i);
+            if (i > 0) sb.append(" | ");
+            sb.append(i).append(':').append(k.getKategoriAdi())
+                    .append(" [").append(k.getKaynakAdi().isEmpty() ? "-" : k.getKaynakAdi()).append(']');
+        }
+        return sb.toString();
+    }
+    private String katLogu(List<String> liste, Set<String> gizliKat) {
+        StringBuilder sb = new StringBuilder();
+        int i = 0;
+        for (String key : liste) {
+            String[] p = key.split(KAYIT_AYRAC);
+            String ad = p.length == 2 ? p[1] : key;
+            boolean gizli = p.length == 2 && gizliKat != null && gizliKat.contains(p[0] + "|" + p[1]);
+            if (i > 0) sb.append(" | ");
+            sb.append(i).append(':').append(gizli ? "*" : "").append(ad);
+            i++;
+        }
+        return sb.toString();
+    }
+    private String kanalLogu(List<Channel> liste, Set<String> gizliUrller) {
+        StringBuilder sb = new StringBuilder();
+        int n = Math.min(liste.size(), 120);
+        for (int i = 0; i < n; i++) {
+            Channel ch = liste.get(i);
+            boolean gizli = ch.getUrl() != null && gizliUrller != null && gizliUrller.contains(ch.getUrl());
+            if (i > 0) sb.append(" | ");
+            sb.append(i).append(':').append(gizli ? "*" : "").append(ch.getName());
+        }
+        if (liste.size() > n) sb.append(" | ...(+").append(liste.size() - n).append(")");
+        return sb.toString();
+    }
+    private List<String> gizliKategorileriYerlestir(List<String> gorunen, List<String> eskiTam,
+                                                    Set<String> gizliKat) {
+        List<String> sonuc = new ArrayList<>(gorunen);
+        if (eskiTam == null || gizliKat == null || gizliKat.isEmpty()) return sonuc;
+        int konum = 0;
+        for (String key : eskiTam) {
+            String[] p = key.split(KAYIT_AYRAC);
+            boolean gizli = p.length == 2 && gizliKat.contains(p[0] + "|" + p[1]);
+            if (gizli) {
+                if (!sonuc.contains(key)) {
+                    sonuc.add(Math.min(konum, sonuc.size()), key);
+                    konum++;
+                }
+            } else {
+                int i = sonuc.indexOf(key);
+                if (i >= 0) konum = i + 1;
+            }
+        }
+        return sonuc;
+    }
+    private boolean kanalGizliMi(Channel ch, Set<String> gizliUrller) {
+        return ch.getUrl() != null && gizliUrller != null && gizliUrller.contains(ch.getUrl());
+    }
+    private String oncekiGorunenAdi(List<Channel> liste, int idx, Set<String> gizliUrller) {
+        for (int i = idx - 1; i >= 0; i--) {
+            if (!kanalGizliMi(liste.get(i), gizliUrller)) return liste.get(i).getName();
+        }
+        return "(başta)";
+    }
+    private Map<Long, Integer> pozisyonlariYaz(AppDatabase db, String turKodu, String kategoriAdi,
+                                               List<Long> yeniGorunenSira) {
+        Map<Long, Integer> yeniPoz = new LinkedHashMap<>();
+        List<Channel> hepsi = new ArrayList<>(
+                db.channelDao().getChannelsByTypeAndCategoryAllM3U(turKodu, kategoriAdi));
+        java.util.Collections.sort(hepsi, (a, b) -> a.getPosition() != b.getPosition()
+                ? Integer.compare(a.getPosition(), b.getPosition())
+                : Long.compare(a.getId(), b.getId()));
+        Set<String> gizliUrller = GizlePaneli.getGizliKanalUrlleri(activity);
+        Map<Long, Channel> gorunenler = new LinkedHashMap<>();
+        for (Channel ch : hepsi) {
+            if (!kanalGizliMi(ch, gizliUrller)) gorunenler.put(ch.getId(), ch);
+        }
+        int gizliSayisi = hepsi.size() - gorunenler.size();
+        // 1) görünen kanallar yeni sırayla
+        List<Channel> sonuc = new ArrayList<>();
+        for (Long id : yeniGorunenSira) {
+            Channel ch = gorunenler.remove(id);
+            if (ch != null) sonuc.add(ch);
+        }
+        sonuc.addAll(gorunenler.values());
+        // 2) gizli kanallar, eskiden hemen arkasında oldukları görünen kanalın arkasına
+        int konum = 0;
+        for (Channel ch : hepsi) {
+            if (kanalGizliMi(ch, gizliUrller)) {
+                sonuc.add(Math.min(konum, sonuc.size()), ch);
+                konum++;
+            } else {
+                for (int i = 0; i < sonuc.size(); i++) {
+                    if (sonuc.get(i).getId() == ch.getId()) { konum = i + 1; break; }
+                }
+            }
+        }
+        // 3) doğrulama logu
+        StringBuilder komsu = new StringBuilder();
+        for (int i = 0; i < hepsi.size(); i++) {
+            Channel ch = hepsi.get(i);
+            if (!kanalGizliMi(ch, gizliUrller)) continue;
+            int j = sonuc.indexOf(ch);
+            komsu.append("\n   gizli [").append(ch.getName()).append("]  önceki görünen: ")
+                    .append(oncekiGorunenAdi(hepsi, i, gizliUrller)).append(" → ")
+                    .append(oncekiGorunenAdi(sonuc, j, gizliUrller));
+        }
+        System.out.println("[SIRA-LOG] KAYIT kanal [" + turKodu + "/" + kategoriAdi + "] (*=gizli) toplam="
+                + hepsi.size() + " gizli=" + gizliSayisi
+                + "\n   ÖNCE : " + kanalLogu(hepsi, gizliUrller)
+                + "\n   SONRA: " + kanalLogu(sonuc, gizliUrller)
+                + komsu);
+        // 4) yaz
+        int yazilan = 0;
+        for (int i = 0; i < sonuc.size(); i++) {
+            Channel ch = sonuc.get(i);
+            yeniPoz.put(ch.getId(), i);
+            if (ch.getPosition() != i) {
+                if (!kanalPozSnapshot.containsKey(ch.getId())) {
+                    kanalPozSnapshot.put(ch.getId(), ch.getPosition());
+                }
+                db.channelDao().updateChannelPosition(ch.getId(), i);
+                yazilan++;
+            }
+        }
+        System.out.println("[SIRA-LOG]   DB'ye yazılan kanal sayısı=" + yazilan + " / " + sonuc.size());
+        return yeniPoz;
+    }
     private void kategoriSirasiKaydet(String turKodu) {
         degisiklikVar = true;
         try {
             android.content.SharedPreferences prefs =
                     activity.getSharedPreferences(PREFS_SIRALAMA, Context.MODE_PRIVATE);
             android.content.SharedPreferences.Editor editor = prefs.edit();
-            List<String> kayitListesi = new ArrayList<>();
+            List<String> gorunenSira = new ArrayList<>();
             for (SiralamaItem item : flatListe) {
                 if (item.getTip() == SiralamaItem.TIP_KATEGORI && turKodu.equals(item.getTur())) {
-                    kayitListesi.add(item.getM3uAdi() + KAYIT_AYRAC + item.getAd());
+                    gorunenSira.add(item.getM3uAdi() + KAYIT_AYRAC + item.getAd());
                 }
             }
+            List<String> kayitListesi = gizliKategorileriYerlestir(
+                    gorunenSira, tamKategoriSirasi.get(turKodu),
+                    GizlePaneli.getGizliKategoriler(activity));
+            Set<String> gizliKatLog = GizlePaneli.getGizliKategoriler(activity);
+            System.out.println("[SIRA-LOG] KAYIT kategori [" + turKodu + "] (*=gizli)"
+                    + "\n   ESKİ TAM : " + katLogu(tamKategoriSirasi.get(turKodu) != null
+                    ? tamKategoriSirasi.get(turKodu) : new ArrayList<String>(), gizliKatLog)
+                    + "\n   GÖRÜNEN  : " + katLogu(gorunenSira, gizliKatLog)
+                    + "\n   YENİ TAM : " + katLogu(kayitListesi, gizliKatLog));
+            tamKategoriSirasi.put(turKodu, new ArrayList<>(kayitListesi));
             editor.putString(turKodu + "_sirasi", android.text.TextUtils.join(KAYIT_AYRAC, kayitListesi));
             editor.apply();
             System.out.println("✅ Kategori sırası kaydedildi [" + turKodu + "]: " + kayitListesi.size());
@@ -672,6 +887,7 @@ public class SiralamaPaneli {
             favoriDiziAdlari.put(turKodu, new ArrayList<>(yeniSira));
         }
         System.out.println("🔀 favoriSirasiKaydet [" + turKodu + "]: " + yeniSira.size() + " öğe");
+        kanalSirasiIsaretle(turKodu, FavorilerYoneticisi.FAVORI_KATEGORI_ADI);
         veriYuklendi = false;
     }
     private List<String> kaydedilenSirayiYukle(String turKodu) {
@@ -746,6 +962,7 @@ public class SiralamaPaneli {
         ed.apply();
         if (!kanalPozSnapshot.isEmpty()) {
             Map<Long, Integer> kopya = new LinkedHashMap<>(kanalPozSnapshot);
+            geriAlmaSuruyor = true;
             new Thread(() -> {
                 try {
                     AppDatabase db = AppDatabase.getInstance(activity);
@@ -756,6 +973,11 @@ public class SiralamaPaneli {
                 } catch (Exception ex) {
                     System.out.println("❌ snapshotGeriAl kanal hatası: " + ex.getMessage());
                 }
+                // Geri yazma bitti: ana listeye şimdi haber ver (DB artık eski sırada)
+                mainHandler.post(() -> {
+                    geriAlmaSuruyor = false;
+                    kanalSirasiBildir("geri alma bitti");
+                });
             }).start();
         }
         com.example.livetvapp.database.KategoriCache.getInstance().invalidateAll();
@@ -763,14 +985,16 @@ public class SiralamaPaneli {
             for (String turKodu : TUR_KODLARI) {
                 String snapVal = siralamaSnapshot.get(turKodu + "_sirasi");
                 if (snapVal == null || snapVal.isEmpty()) continue;
-                List<String> eskiSira = new ArrayList<>();
+                List<KategoriItem> eskiSira = new ArrayList<>();
                 String[] parts = snapVal.split(KAYIT_AYRAC);
+                // kayıt formatı: m3uAdi###kategori###m3uAdi###kategori ...
                 for (int i = 1; i < parts.length; i += 2) {
-                    if (!parts[i].isEmpty()) eskiSira.add(parts[i]);
+                    if (!parts[i].isEmpty()) eskiSira.add(new KategoriItem(parts[i], parts[i - 1]));
                 }
                 if (!eskiSira.isEmpty()) {
                     final String tk = turKodu;
-                    final List<String> es = new ArrayList<>(eskiSira);
+                    final List<KategoriItem> es = new ArrayList<>(eskiSira);
+                    System.out.println("[SIRA-LOG] KATEGORİ-BİLDİRİM geri alma [" + tk + "] kaynakla: " + kategoriItemLogu(es));
                     mainHandler.post(() -> kategoriGuncelleCallback.onKategoriSirasiDegisti(tk, es));
                 }
             }
@@ -782,6 +1006,7 @@ public class SiralamaPaneli {
     public void veriGecersizKil() {
         veriYuklendi = false;
         tumKategoriler.clear();
+        tamKategoriSirasi.clear();
         tumKanallar.clear();
         favoriDiziAdlari.clear();
     }

@@ -18,11 +18,11 @@ public class DiziAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private static final int TIP_SEZON = 1;
     private static final int TIP_BOLUM = 2;
 
-    
-    private static final int RENK_NORMAL      = 0xFF1A3A5A;   
-    private static final int RENK_FOCUS       = 0x88FF0000;   
-    private static final int RENK_DIZI_BASLIK = 0xFF1A3A5A;   
-    private static final int RENK_SEZON       = 0xFF1A3A5A;   
+
+    private static final int RENK_NORMAL      = 0xFF1A3A5A;
+    private static final int RENK_FOCUS       = 0x88FF0000;
+    private static final int RENK_DIZI_BASLIK = 0xFF1A3A5A;
+    private static final int RENK_SEZON       = 0xFF1A3A5A;
 
     private static class ListeOgesi {
         int   tip;
@@ -76,12 +76,12 @@ public class DiziAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         super.onDetachedFromRecyclerView(recyclerView);
         if (this.recyclerViewRef == recyclerView) this.recyclerViewRef = null;
     }
-    
+
     private void focusiKorumayaAl(int gosterimarPozisyon) {
         if (recyclerViewRef == null) return;
         View odaklanan = recyclerViewRef.getFocusedChild();
         boolean focusKayboldu = (odaklanan == null);
-        if (!focusKayboldu) return; 
+        if (!focusKayboldu) return;
         recyclerViewRef.post(() -> {
             RecyclerView.ViewHolder holder =
                     recyclerViewRef.findViewHolderForAdapterPosition(gosterimarPozisyon);
@@ -268,7 +268,7 @@ public class DiziAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             } else if (acik) {
                 sezonBilgisi = "  (" + oge.dizi.getSezonlar().size() + " Sezon)";
             }
-            btn.setText((acik ? "▼ " : "▶ ") + gorunumAdi(oge.dizi) + sezonBilgisi);
+            btn.setText((acik ? "▼ " : "▶ ") + (oge.diziIndex + 1) + " - " + gorunumAdi(oge.dizi) + sezonBilgisi);
             btn.setBackgroundColor(RENK_DIZI_BASLIK);
             btn.setOnFocusChangeListener((v, hasFocus) -> {
                 btn.setBackgroundColor(hasFocus ? RENK_FOCUS : RENK_DIZI_BASLIK);

@@ -15,11 +15,14 @@
     <!-- Checkbox (seçim modu) -->
     <CheckBox
         android:id="@+id/cbSecim"
-        android:layout_width="28dp"
-        android:layout_height="28dp"
-        android:layout_marginEnd="6dp"
-        android:focusable="false"
-        android:clickable="false"
+        android:layout_width="40dp"
+        android:layout_height="48dp"
+        android:layout_marginEnd="4dp"
+        android:background="@drawable/item_focus_bg"
+        android:focusable="true"
+        android:focusableInTouchMode="true"
+        android:clickable="true"
+        android:nextFocusRight="@id/layoutAc"
         android:visibility="gone" />
 
     <!-- İkon -->

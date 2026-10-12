@@ -89,8 +89,8 @@ public class Dpad {
         ICERIK_KATEGORI_DIZI,
         AYARLAR,
         ARAMA,
-        AYARLAR_GIZLE,      
-        AYARLAR_SIRALAMA    
+        AYARLAR_GIZLE,
+        AYARLAR_SIRALAMA
     }
 
     private AktifPanel aktifPanel = AktifPanel.HICBIRI;
@@ -157,15 +157,15 @@ public class Dpad {
                 aciklamalar.addAll(Arrays.asList("İçerikte yukarı", "İçerikte aşağı", "—", "Kategoriye geçiş", "İçerik seç", "Kategoriye geç"));
                 break;
             case AYARLAR:
-                
+
                 AyarlarPaneli.MenuSeviyesi altMenu = ayarlarPaneli.getMevcutMenu();
                 boolean anaMenuMu = (altMenu == AyarlarPaneli.MenuSeviyesi.ANA_MENU);
 
                 if (anaMenuMu) {
-                    
+
                     aciklamalar.addAll(Arrays.asList("Menüde yukarı", "Menüde aşağı", "------", "-------", "Seçeneği seç", "Ayarlardan çık"));
                 } else {
-                    
+
                     aciklamalar.addAll(Arrays.asList("Menüde yukarı", "Menüde aşağı", "------", "-------", "Seçeneği seç", "Üst menü"));
                 }
                 break;
@@ -282,7 +282,7 @@ public class Dpad {
     }
 
     private boolean handleBarTuslari(int keyCode, KeyEvent event) {
-        
+
         List<Button> barButtons = new ArrayList<>();
         int[] ids = {R.id.btnKanallar, R.id.btnRewindStep, R.id.btnRewind, R.id.btnPlayPause, R.id.btnForward, R.id.btnForwardStep,
                 R.id.btnFavori, R.id.btnMute, R.id.btnSettings, R.id.btnSearch, R.id.btnPiP, R.id.btnFullscreen, R.id.btnCloseBar};
@@ -299,7 +299,7 @@ public class Dpad {
         View focused = activity.getCurrentFocus();
         int idx = barButtons.indexOf(focused);
 
-        
+
         if (idx == -1) {
             barButtons.get(0).requestFocus();
             return true;
@@ -359,13 +359,13 @@ public class Dpad {
         if (focused != null) {
             int pos = rv.getChildAdapterPosition(focused);
             if (pos > 0) {
-                
+
                 View prevChild = rv.getLayoutManager().findViewByPosition(pos - 1);
                 if (prevChild != null) {
                     prevChild.requestFocus();
                     return true;
                 } else {
-                    
+
                     rv.smoothScrollToPosition(pos - 1);
                     rv.post(() -> {
                         View scrolledChild = rv.getLayoutManager().findViewByPosition(pos - 1);
@@ -376,7 +376,7 @@ public class Dpad {
             }
         }
 
-        
+
         if (isEnUstOge(rv)) {
             System.out.println("⬆️ En üst öğe — focus burada kalıyor");
             return true;
@@ -398,7 +398,7 @@ public class Dpad {
         RecyclerView rv = getAktifRecyclerView();
         if (rv == null) return false;
 
-        
+
         if (aktifPanel == AktifPanel.SADECE_KANAL) {
             View focused = rv.getFocusedChild();
             if (focused != null) {
@@ -416,7 +416,7 @@ public class Dpad {
             int pos = rv.getChildAdapterPosition(focused);
             int itemCount = rv.getAdapter() != null ? rv.getAdapter().getItemCount() : 0;
             if (pos < itemCount - 1) {
-                
+
                 View nextChild = rv.getLayoutManager().findViewByPosition(pos + 1);
                 if (nextChild != null) {
                     nextChild.requestFocus();
@@ -432,7 +432,7 @@ public class Dpad {
             }
         }
 
-        
+
         if (isEnAltOge(rv)) {
             System.out.println("⬇️ En alt öğe — focus burada kalıyor");
             return true;
@@ -574,16 +574,16 @@ public class Dpad {
 
     private boolean handleEnter() {
         if (aktifPanel == AktifPanel.HICBIRI) {
-            
+
             if (oynaticiBar != null && oynaticiBar.isVisible()) {
                 oynaticiBar.gizle();
             }
             if (anakontrol != null) {
-                
+
                 if (anakontrol.isVideoPaused()) {
                     anakontrol.resumeVideo();
                 }
-                
+
                 else {
                     if (Icerikpaneli.TIP_DIZI.equals(aktifIcerikTipi)) {
                         diziPaneli.setMarginStart(0);
@@ -594,13 +594,13 @@ public class Dpad {
                         if (diziPaneli.getAdapter() != null)
                             diziPaneli.getAdapter().setPanelAcik(true);
                         guncelleKisayol();
-                        focusDiziPanelineVer(false);  
+                        focusDiziPanelineVer(false);
                     } else {
-                    anakontrol.panelAcilirkenAktifOgeYukle();  
-                }
+                        anakontrol.panelAcilirkenAktifOgeYukle();
+                    }
                 }
             } else {
-                
+
                 if (Icerikpaneli.TIP_DIZI.equals(aktifIcerikTipi)) {
                     diziPaneli.setMarginStart(0);
                     View v = diziPaneli.getPanelView();
@@ -616,7 +616,7 @@ public class Dpad {
             }
             return true;
         }
-        
+
         View focusedView = activity.getCurrentFocus();
         System.out.println("🔘 handleEnter | focusedView=" + (focusedView != null ? focusedView.getClass().getSimpleName() : "null"));
         if (focusedView instanceof Button) {
@@ -967,7 +967,7 @@ public class Dpad {
             return false;
         }
         if (menu == AyarlarPaneli.MenuSeviyesi.GIZLE_PANELI) {
-            
+
             if (aktifPanel != AktifPanel.AYARLAR_GIZLE) {
                 aktifPanel = AktifPanel.AYARLAR_GIZLE;
                 guncelleKisayol();
@@ -1004,7 +1004,7 @@ public class Dpad {
                     if (!islendi) {
                         ayarlarPaneliKapat();
                     } else {
-                        
+
                         if (aktifPanel == AktifPanel.AYARLAR_GIZLE || aktifPanel == AktifPanel.AYARLAR_SIRALAMA) {
                             aktifPanel = AktifPanel.AYARLAR;
                             guncelleKisayol();
@@ -1015,7 +1015,7 @@ public class Dpad {
             return false;
         }
         if (menu == AyarlarPaneli.MenuSeviyesi.SIRALAMA_PANELI) {
-            
+
             if (aktifPanel != AktifPanel.AYARLAR_SIRALAMA) {
                 aktifPanel = AktifPanel.AYARLAR_SIRALAMA;
                 guncelleKisayol();
@@ -1047,7 +1047,7 @@ public class Dpad {
                     if (!siraIslendi) {
                         ayarlarPaneliKapat();
                     } else {
-                        
+
                         if (aktifPanel == AktifPanel.AYARLAR_SIRALAMA) {
                             aktifPanel = AktifPanel.AYARLAR;
                             guncelleKisayol();
@@ -1198,11 +1198,14 @@ public class Dpad {
         }
         RecyclerView rv = diziPaneli.getRecyclerView();
         if (rv == null || diziAdi == null) return;
+        final String hedefAd = diziPaneli.diziyiGorunurYap(diziAdi);
+        System.out.println("🎯 [ARAMA-ODAK] Dpad.diziPaneliAramadanAc: aranan=" + diziAdi + " | hedef=" + hedefAd);
+        if (hedefAd == null) return;
         rv.postDelayed(() -> {
             com.example.livetvapp.Adapter.DiziAdapter diziAdapter =
                     (com.example.livetvapp.Adapter.DiziAdapter) rv.getAdapter();
             if (diziAdapter == null) return;
-            int poz = diziAdapter.diziAdindanPozisyonBul(diziAdi);
+            int poz = diziAdapter.diziAdindanPozisyonBul(hedefAd);
             rv.scrollToPosition(poz);
             rv.postDelayed(() -> {
                 RecyclerView.ViewHolder vh = rv.findViewHolderForAdapterPosition(poz);

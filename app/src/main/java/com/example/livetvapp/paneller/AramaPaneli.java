@@ -50,6 +50,8 @@ public class AramaPaneli {
     private AramaAdapter adapterCanli, adapterFilm, adapterDizi;
     private int offsetCanli = 0, offsetFilm = 0, offsetDizi = 0;
     private boolean yukleniyor = false;
+    private android.widget.ScrollView svSonuclar;
+    private boolean bittiCanli = false, bittiFilm = false, bittiDizi = false;
     private String mevcutSorgu = "";
     private final Map<String, Channel> diziTekilMap = new LinkedHashMap<>();
     private final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
@@ -85,9 +87,7 @@ public class AramaPaneli {
         rvFilm.setLayoutManager(new LinearLayoutManager(activity));
         rvDizi.setLayoutManager(new LinearLayoutManager(activity));
 
-        scrollListenerEkle(rvCanliTV, "LIVE");
-        scrollListenerEkle(rvFilm,    "MOVIE");
-        scrollListenerEkle(rvDizi,    "SERIES");
+        svSonuclarBagla();
 
         etArama.setOnFocusChangeListener((v, hasFocus) -> {
             if (klavye != null && klavye.isVisible()) return;
@@ -189,20 +189,45 @@ public class AramaPaneli {
                         normalPanelYukseklik));
     }
 
-    private void scrollListenerEkle(RecyclerView rv, String contentType) {
-        rv.addOnScrollListener(new RecyclerView.OnScrollListener() {
-            @Override
-            public void onScrolled(@androidx.annotation.NonNull RecyclerView rv, int dx, int dy) {
-                if (dy <= 0 || yukleniyor || mevcutSorgu.isEmpty()) return;
-                LinearLayoutManager llm = (LinearLayoutManager) rv.getLayoutManager();
-                if (llm == null) return;
-                int toplamOge  = llm.getItemCount();
-                int sonGorunen = llm.findLastVisibleItemPosition();
-                if (sonGorunen >= toplamOge - 3) {
-                    dahayukle(contentType);
-                }
-            }
-        });
+    private void svSonuclarBagla() {
+        svSonuclar = null;
+        View v = grupFilm != null ? (View) grupFilm.getParent() : null;
+        while (v != null && !(v instanceof android.widget.ScrollView)) {
+            android.view.ViewParent p = v.getParent();
+            v = (p instanceof View) ? (View) p : null;
+        }
+        if (v == null) {
+            System.out.println("⚠️ [ARAMA-SCROLL] ScrollView bulunamadı, sayfalama devre dışı");
+            return;
+        }
+        svSonuclar = (android.widget.ScrollView) v;
+        android.view.ViewTreeObserver vto = svSonuclar.getViewTreeObserver();
+        vto.addOnScrollChangedListener(this::dahaYuklemeKontrol);
+        vto.addOnGlobalLayoutListener(this::dahaYuklemeKontrol);
+    }
+
+    private boolean kategoriAltinaYakin(LinearLayout grup, RecyclerView rv, boolean bitti, Object adapter) {
+        if (bitti || adapter == null || grup == null || rv == null) return false;
+        if (rv.getVisibility() != View.VISIBLE) return false;
+        int gorunurAlt = svSonuclar.getScrollY() + svSonuclar.getHeight();
+        int kalan = grup.getBottom() - gorunurAlt;
+        return kalan <= svSonuclar.getHeight() / 2;
+    }
+
+    private void dahaYuklemeKontrol() {
+        if (svSonuclar == null || yukleniyor || mevcutSorgu.isEmpty() || !isVisible()) return;
+        if (svSonuclar.getHeight() == 0 || svSonuclar.getChildCount() == 0
+                || svSonuclar.getChildAt(0).getHeight() == 0) return;
+        if (kategoriAltinaYakin(grupFilm, rvFilm, bittiFilm, adapterFilm)) {
+            System.out.println("📜 [ARAMA-SCROLL] Film sonraki sayfa | offset=" + offsetFilm);
+            dahayukle("MOVIE");
+        } else if (kategoriAltinaYakin(grupDizi, rvDizi, bittiDizi, adapterDizi)) {
+            System.out.println("📜 [ARAMA-SCROLL] Dizi sonraki sayfa | offset=" + offsetDizi);
+            dahayukle("SERIES");
+        } else if (kategoriAltinaYakin(grupCanli, rvCanliTV, bittiCanli, adapterCanli)) {
+            System.out.println("📜 [ARAMA-SCROLL] Canlı TV sonraki sayfa | offset=" + offsetCanli);
+            dahayukle("LIVE");
+        }
     }
 
     private void dahayukle(String contentType) {
@@ -219,12 +244,12 @@ public class AramaPaneli {
     }
 
     public void goster() {
-        
+
         panelView.setVisibility(View.VISIBLE);
         etArama.setText("");
         temizleSonuclar();
-        sonucFokusModuAktif = false;       
-        panelYuksekliginiSifirla();        
+        sonucFokusModuAktif = false;
+        panelYuksekliginiSifirla();
 
         boolean remoteKontrolBagliMi = remoteKontrolSupplier != null && remoteKontrolSupplier.isRemoteClientConnected();
 
@@ -233,7 +258,7 @@ public class AramaPaneli {
             etArama.post(() -> {
                 etArama.requestFocus();
                 if (!remoteKontrolBagliMi) {
-                    klavye.goster(etArama);   
+                    klavye.goster(etArama);
                 }
             });
         } else {
@@ -285,6 +310,10 @@ public class AramaPaneli {
             adapterFilm  = null;
             adapterDizi  = null;
             diziTekilMap.clear();
+            bittiCanli = false;
+            bittiFilm  = false;
+            bittiDizi  = false;
+            yukleniyor = false;
             temizleSonuclar();
             aramaIstekCallback.onAramaIstegi(mevcutSorgu, "LIVE",   0);
             aramaIstekCallback.onAramaIstegi(mevcutSorgu, "MOVIE",  0);
@@ -307,9 +336,11 @@ public class AramaPaneli {
                     adapterCanli.ekleSiraBilgisi(siraMap);
                     adapterCanli.appendItems(channels);
                     offsetCanli += channels.size();
-                    
+
                     String okCanli = rvCanliTV.getVisibility() == View.VISIBLE ? " ▼" : " ▶";
                     tvCanliBaslik.setText("Canlı TV (" + offsetCanli + ")" + okCanli);
+                } else {
+                    bittiCanli = true;
                 }
                 break;
             case "MOVIE":
@@ -320,9 +351,11 @@ public class AramaPaneli {
                     adapterFilm.ekleSiraBilgisi(siraMap);
                     adapterFilm.appendItems(channels);
                     offsetFilm += channels.size();
-                    
+
                     String okFilm = rvFilm.getVisibility() == View.VISIBLE ? " ▼" : " ▶";
                     tvFilmBaslik.setText("Film (" + offsetFilm + ")" + okFilm);
+                } else {
+                    bittiFilm = true;
                 }
                 break;
             case "SERIES":
@@ -335,7 +368,8 @@ public class AramaPaneli {
                     adapterDizi.appendItems(tekilDiziler);
                 }
                 offsetDizi += channels.size();
-                
+                if (channels.isEmpty()) bittiDizi = true;
+
                 if (adapterDizi != null) {
                     String okDizi = rvDizi.getVisibility() == View.VISIBLE ? " ▼" : " ▶";
                     tvDiziBaslik.setText("Dizi (" + adapterDizi.getItemCount() + ")" + okDizi);
@@ -343,6 +377,7 @@ public class AramaPaneli {
                 break;
         }
         sonucYokKontrol();
+        if (svSonuclar != null) svSonuclar.post(this::dahaYuklemeKontrol);
     }
 
     private List<Channel> tekilDiziListesiOlustur(List<Channel> kanallar) {
@@ -389,14 +424,14 @@ public class AramaPaneli {
 
     private void grupBaslat(LinearLayout grup, TextView baslik, RecyclerView rv,
                             String baslikMetin, String contentType) {
-        
-        
+
+
         baslik.setText(baslikMetin + " (0) ▶");
         baslik.setFocusable(true);
         baslik.setClickable(true);
         rv.setVisibility(View.GONE);
 
-        
+
         baslik.setOnClickListener(v -> {
             String t = baslik.getText().toString();
             if (rv.getVisibility() == View.VISIBLE) {
@@ -415,7 +450,7 @@ public class AramaPaneli {
                 etArama.requestFocus();
                 return true;
             }
-            
+
             if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_CENTER
                     || keyCode == android.view.KeyEvent.KEYCODE_ENTER) {
                 String t = baslik.getText().toString();
@@ -466,7 +501,7 @@ public class AramaPaneli {
         }
     }
 
-    
+
     private void temizleSonuclar() {
         if (tvCanliBaslik != null) tvCanliBaslik.setText("Canlı TV (0) ▶");
         if (tvFilmBaslik  != null) tvFilmBaslik.setText("Film (0) ▶");

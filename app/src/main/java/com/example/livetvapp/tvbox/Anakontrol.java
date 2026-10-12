@@ -488,13 +488,34 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
         if (spKategori != null) {
             spKategori.setKategoriGuncelleCallback((turKodu, yeniSira) -> {
                 if (turKodu.equals(aktifIcerikTipi)) {
-                    List<KategoriItem> yeniItems = new ArrayList<>();
-                    for (String ad : yeniSira) {
-                        yeniItems.add(new KategoriItem(ad, ""));
-                    }
+                    // M3U adı (kaynakAdi) sıralama panelinden olduğu gibi geliyor, boşaltılmıyor
+                    List<KategoriItem> yeniItems = new ArrayList<>(yeniSira);
                     kategoriPaneli.kategorileriGuncelle(yeniItems);
+                    int kaynakli = 0;
+                    for (KategoriItem k : yeniItems) if (!k.getKaynakAdi().isEmpty()) kaynakli++;
                     System.out.println("✅ [ANA] KategoriPaneli anlik guncellendi [" + turKodu + "]: " + yeniItems.size());
+                    System.out.println("[SIRA-LOG] ANA kategori listesi [" + turKodu + "] toplam=" + yeniItems.size()
+                            + " kaynaklı=" + kaynakli + " (kaynaksız=" + (yeniItems.size() - kaynakli) + ")");
                 }
+            });
+            // Sıralama panelinde kanal/favori sırası değişince ana ekrandaki kanal listesini yenile
+            spKategori.setKanalSirasiCallback((turKodu, kategoriAdi) -> {
+                boolean tipUyuyor = turKodu != null && turKodu.equals(aktifIcerikTipi);
+                boolean katUyuyor = kategoriAdi != null && kategoriAdi.equals(aktifKategori);
+                System.out.println("[SIRA-LOG] ANA kanal sırası bildirimi: tur=" + turKodu
+                        + " kategori=" + kategoriAdi
+                        + " | aktifTip=" + aktifIcerikTipi + " aktifKategori=" + aktifKategori
+                        + " | tipUyuyor=" + tipUyuyor + " katUyuyor=" + katUyuyor);
+                if (!tipUyuyor || !katUyuyor) {
+                    System.out.println("[SIRA-LOG] ANA → aktif liste bu kategori değil, yenilenmedi");
+                    return;
+                }
+                if (Icerikpaneli.TIP_DIZI.equals(turKodu)) {
+                    System.out.println("[SIRA-LOG] ANA → dizi listesi bu adımda yenilenmiyor (sonraki adım)");
+                    return;
+                }
+                System.out.println("[SIRA-LOG] ANA → kanal listesi yenileniyor: " + kategoriAdi);
+                kategoriFiltrele(kategoriAdi);
             });
         }
         dpad = new Dpad(activity, kanalPaneli, ayarlarPaneli, kategoriPaneli, icerikPaneli, diziPaneli);
@@ -1033,6 +1054,17 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
         mainHandler.postDelayed(bekleyenDiziKategoriYukle, KATEGORI_DEBOUNCE_MS);
     }
 
+    private String siraLogu(List<Channel> liste) {
+        StringBuilder sb = new StringBuilder();
+        int n = Math.min(liste.size(), 15);
+        for (int i = 0; i < n; i++) {
+            if (i > 0) sb.append(" | ");
+            sb.append(i).append(':').append(liste.get(i).getName());
+        }
+        if (liste.size() > n) sb.append(" | ...(+").append(liste.size() - n).append(")");
+        return sb.toString();
+    }
+
     private void kategoriFiltrele(String kategori) {
         this.aktifKategori = kategori;
         if (FavorilerYoneticisi.FAVORI_KATEGORI_ADI.equals(kategori)) {
@@ -1056,6 +1088,8 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
                                                 public void onChannelsLoaded(List<Channel> channels, boolean fromCache) {
                                                     boolean sayfaBitti = channels.size() < 50;
                                                     List<Channel> g = gizliKanallariFiltreele(channels);
+                                                    System.out.println("[SIRA-LOG] ANA liste sayfa yüklendi [" + aktifIcerikTipi + "/" + aktifKategori
+                                                            + "] offset=" + offset + " adet=" + g.size() + " → " + siraLogu(g));
                                                     mainHandler.post(() -> {
                                                         sonuc.sayfaGeldi(g, sayfaBitti);
                                                     });
@@ -1142,6 +1176,8 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
                             kanalPaneli.setDbSayfaCallback(null);
                             kanalPaneli.kanallarıGuncelle(gorunenler);
                             System.out.println("⭐ [FAVORİ] " + gorunenler.size() + " kanal yüklendi");
+                            System.out.println("[SIRA-LOG] ANA favori liste [" + aktifIcerikTipi + "] adet="
+                                    + gorunenler.size() + " → " + siraLogu(gorunenler));
                             kutuGorunurlugunuGuncelle();
                         });
                     }

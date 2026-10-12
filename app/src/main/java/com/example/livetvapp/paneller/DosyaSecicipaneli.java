@@ -65,11 +65,11 @@ import android.content.IntentFilter;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 public class DosyaSecicipaneli extends AppCompatActivity {
 
-    
+
     private static final int PERMISSION_REQUEST_CODE = 100;
     private static final int MANAGE_STORAGE_REQUEST  = 101;
 
-    
+
     private RemoteControlServer remoteServer;
     private BroadcastReceiver remoteCommandReceiver = new BroadcastReceiver() {
         @Override
@@ -100,20 +100,20 @@ public class DosyaSecicipaneli extends AppCompatActivity {
     private static final int PANO_KOPYA = 1;
     private static final int PANO_KES   = 2;
 
-    
+
     private RecyclerView  recyclerView;
     private DosyaAdapter  adapter;
     private TextView      tvYol, tvBilgi, tvBos, tvPanoBilgi, tvSecimSayisi;
     private EditText      etArama;
     private ImageButton   btnGeri, btnAnaDizin, btnGorunum, btnSiralama, btnArama;
-    private LinearLayout  btnYeniKlasor, btnYapistir, btnSecimMod;  
+    private LinearLayout  btnYeniKlasor, btnYapistir, btnSecimMod;
     private LinearLayout btnTumunuSec;
     private LinearLayout  aramaBar, breadcrumbLayout, altToolbar;
 
-    
-    
-    
-    
+
+
+
+
     private File            dahiliDepolamaYolu;
     private File            currentDir;
     private Stack<File>     gecmis       = new Stack<>();
@@ -124,18 +124,18 @@ public class DosyaSecicipaneli extends AppCompatActivity {
     private boolean         aramaAcik    = false;
     private String          aramaMetni   = "";
 
-    
+
     private boolean      secimModu = false;
     private Set<String>  secilen   = new HashSet<>();
 
-    
+
     private File panoKaynak = null;
     private int  panoIslem  = PANO_YOK;
 
-    
+
     private int sonFocusPozisyonu = 0;
 
-    
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -164,7 +164,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        
+
         android.content.Intent iAcik = new android.content.Intent("com.example.livetvapp.DOSYA_SECICI_DURUM");
         iAcik.putExtra("aktif", true);
         androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(this).sendBroadcast(iAcik);
@@ -178,7 +178,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
-        
+
         android.content.Intent iKapali = new android.content.Intent("com.example.livetvapp.DOSYA_SECICI_DURUM");
         iKapali.putExtra("aktif", false);
         androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(this).sendBroadcast(iKapali);
@@ -191,7 +191,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
 
     }
 
-    
+
     private void baglaView() {
         recyclerView    = findViewById(R.id.recyclerView);
         tvYol           = findViewById(R.id.tvYol);
@@ -205,16 +205,16 @@ public class DosyaSecicipaneli extends AppCompatActivity {
         btnGorunum      = findViewById(R.id.btnGorunum);
         btnSiralama     = findViewById(R.id.btnSiralama);
         btnArama        = findViewById(R.id.btnArama);
-        btnYeniKlasor   = findViewById(R.id.btnYeniKlasor);   
-        btnYapistir     = findViewById(R.id.btnYapistir);     
-        btnSecimMod     = findViewById(R.id.btnSecimMod);     
+        btnYeniKlasor   = findViewById(R.id.btnYeniKlasor);
+        btnYapistir     = findViewById(R.id.btnYapistir);
+        btnSecimMod     = findViewById(R.id.btnSecimMod);
         btnTumunuSec   = findViewById(R.id.btnTumunuSec);
         aramaBar        = findViewById(R.id.aramaBar);
         breadcrumbLayout= findViewById(R.id.breadcrumbLayout);
         altToolbar      = findViewById(R.id.altToolbar);
     }
 
-    
+
     private void dinleyicileriAyarla() {
         btnGeri.setOnClickListener(v -> geriGit());
         btnAnaDizin.setOnClickListener(v -> anaDizineGit());
@@ -268,7 +268,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
         }
     }
 
-    
+
     private void izinKontrol() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             if (Environment.isExternalStorageManager()) baslatDosyaGezgini();
@@ -378,7 +378,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
                 .setCancelable(false).show();
     }
 
-    
+
     private void baslatDosyaGezgini() {
         adapter = new DosyaAdapter(
                 filtrelenmis,
@@ -391,7 +391,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
         anaDiziniOlusturVeGit();
     }
 
-    
+
     private boolean erisilebilirMi(File dir) {
         if (dir == null) return false;
         try {
@@ -416,7 +416,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
     private void anaDiziniOlusturVeGit() {
         List<DosyaOge> depolamalar = new ArrayList<>();
 
-        
+
         File dahili = Environment.getExternalStorageDirectory();
         Log.d("DosyaSecici", "getExternalStorageDirectory() -> "
                 + (dahili != null ? dahili.getAbsolutePath() : "null"));
@@ -428,15 +428,15 @@ public class DosyaSecicipaneli extends AppCompatActivity {
         dahiliAdaylar.add(new File("/storage/self/primary"));
         dahiliAdaylar.add(new File("/data/media/0"));
 
-        
-        
-        
-        
+
+
+
+
         try {
             File[] extDirs = getExternalFilesDirs(null);
             if (extDirs != null && extDirs.length > 0 && extDirs[0] != null) {
                 File kok = extDirs[0];
-                
+
                 for (int i = 0; i < 4 && kok != null; i++) kok = kok.getParentFile();
                 if (kok != null) {
                     dahiliAdaylar.add(kok);
@@ -457,7 +457,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
 
         if (bulunanDahili != null) {
             depolamalar.add(new DosyaOge(bulunanDahili));
-            dahili = bulunanDahili; 
+            dahili = bulunanDahili;
             dahiliDepolamaYolu = bulunanDahili;
             Log.d("DosyaSecici", "✅ Dahili depolama bulundu: " + bulunanDahili.getAbsolutePath());
         } else {
@@ -466,14 +466,14 @@ public class DosyaSecicipaneli extends AppCompatActivity {
             Log.w("DosyaSecici", "❌ Hiçbir dahili depolama adayına erişilemedi: " + dahiliAdaylar);
         }
 
-        
+
         android.os.storage.StorageManager sm =
                 (android.os.storage.StorageManager) getSystemService(android.content.Context.STORAGE_SERVICE);
         if (sm != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             List<android.os.storage.StorageVolume> volumes = sm.getStorageVolumes();
             for (android.os.storage.StorageVolume vol : volumes) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    
+
                     File dir = vol.getDirectory();
                     if (erisilebilirMi(dir)) {
                         if (dahili != null && dir.getAbsolutePath().equals(dahili.getAbsolutePath())) continue;
@@ -487,7 +487,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
                         }
                     }
                 } else {
-                    
+
                     try {
                         java.lang.reflect.Method getPath = vol.getClass().getMethod("getPath");
                         String path = (String) getPath.invoke(vol);
@@ -512,7 +512,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
             }
         }
 
-        
+
         try {
             File storage = new File("/storage");
             File[] volumes = storage.listFiles();
@@ -535,7 +535,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
             Log.e("DosyaSecici", "Fallback tarama hatası: " + e.getMessage());
         }
 
-        
+
         File storage = new File("/storage");
         if (storage.exists() && storage.isDirectory()) {
             File[] storageFiles = storage.listFiles();
@@ -557,7 +557,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
             }
         }
 
-        
+
         File mnt = new File("/mnt");
         if (mnt.exists() && mnt.isDirectory()) {
             File[] mntFiles = mnt.listFiles();
@@ -577,14 +577,14 @@ public class DosyaSecicipaneli extends AppCompatActivity {
             }
         }
 
-        
+
         if (depolamalar.isEmpty()) {
             Toast.makeText(this, "Depolama alanı bulunamadı!", Toast.LENGTH_LONG).show();
             finish();
             return;
         }
 
-        
+
         currentDir = new File("/storage");
         secilen.clear();
         tumDosyalar.clear();
@@ -596,7 +596,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
         arayuzGuncelle();
     }
 
-    
+
     private void dizineGit(File dir) {
         if (dir == null || !dir.exists() || !dir.isDirectory()) { toast("Klasör açılamadı"); return; }
         currentDir = dir;
@@ -612,16 +612,16 @@ public class DosyaSecicipaneli extends AppCompatActivity {
         String mevcutYol = currentDir.getAbsolutePath();
         String dahiliYol = dahiliDepolamaYolu != null ? dahiliDepolamaYolu.getAbsolutePath() : "";
 
-        
+
         if (mevcutYol.equals("/storage")) {
             finish();
             return;
         }
 
-        
+
         if (!gecmis.isEmpty()) {
             currentDir = gecmis.pop();
-            
+
             int hedefPoz = sonFocusPozisyonu;
             sonFocusPozisyonu = 0;
             if (currentDir.getAbsolutePath().equals("/storage")) {
@@ -633,7 +633,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
             return;
         }
 
-        
+
         if (mevcutYol.equals(dahiliYol)
                 || (currentDir.getParentFile() != null
                 && currentDir.getParentFile().getAbsolutePath().equals("/storage"))) {
@@ -651,14 +651,14 @@ public class DosyaSecicipaneli extends AppCompatActivity {
             dosyalariYukle();
             breadcrumbGuncelle();
         } else {
-            
-            
+
+
             Log.w("DosyaSecici", "anaDizineGit: dahili depolama yok, sanal köke dönülüyor");
             anaDiziniOlusturVeGit();
         }
     }
 
-    
+
     private void dosyalariYukle() {
         tumDosyalar.clear();
         File[] dosyalar = currentDir.listFiles();
@@ -679,7 +679,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
                 if (!f.getName().startsWith("."))
                     tumDosyalar.add(new DosyaOge(f));
         sirala();
-        
+
         filtrelenmis.clear();
         for (DosyaOge o : tumDosyalar)
             if (aramaMetni.isEmpty() || o.dosya.getName().toLowerCase(new Locale("tr")).contains(aramaMetni))
@@ -693,7 +693,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
         tvYol.setText(currentDir.getAbsolutePath());
 
         if (!filtrelenmis.isEmpty()) {
-            
+
             final int poz = (hedefPozisyon >= 0 && hedefPozisyon < filtrelenmis.size())
                     ? hedefPozisyon : 0;
             new Handler(Looper.getMainLooper()).postDelayed(() -> {
@@ -747,7 +747,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
                     if (layoutAc != null) layoutAc.requestFocus();
                     else vh.itemView.requestFocus();
                 }
-                
+
                 btnGeri.setNextFocusDownId(R.id.layoutAc);
                 btnAnaDizin.setNextFocusDownId(R.id.layoutAc);
                 btnArama.setNextFocusDownId(R.id.layoutAc);
@@ -756,12 +756,12 @@ public class DosyaSecicipaneli extends AppCompatActivity {
             }, 150);
     }
 
-    
+
     private void gorununGuncelle() {
         if (gorunum == GORUNUM_LISTE) {
             recyclerView.setLayoutManager(new LinearLayoutManager(this));
         } else {
-            
+
             int spanCount = getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT ? 2 : 4;
             recyclerView.setLayoutManager(new GridLayoutManager(this, spanCount));
         }
@@ -775,18 +775,17 @@ public class DosyaSecicipaneli extends AppCompatActivity {
                 .setNegativeButton("İptal", null).show();
     }
 
-    
+
     private void onDosyaAc(DosyaOge oge) {
         if ("browser".equals(mode)) {
             if (oge.dosya.isDirectory()) {
-                
+
                 sonFocusPozisyonu = filtrelenmis.indexOf(oge);
                 gecmis.push(currentDir);
                 dizineGit(oge.dosya);
             }
             return;
         }
-        if (secimModu) { onDosyaSecimDegisti(oge); return; }
         if (oge.dosya.isDirectory()) {
             sonFocusPozisyonu = filtrelenmis.indexOf(oge);
             gecmis.push(currentDir);
@@ -795,13 +794,13 @@ public class DosyaSecicipaneli extends AppCompatActivity {
         else dosyaSec(oge.dosya);
     }
 
-    
+
     private void onDosyaSecimDegisti(DosyaOge oge) {
         String yol = oge.dosya.getAbsolutePath();
         if (secilen.contains(yol)) secilen.remove(yol); else secilen.add(yol);
         adapter.setSecilen(secilen);
 
-        
+
         int pos = filtrelenmis.indexOf(oge);
         if (pos >= 0) {
             RecyclerView.ViewHolder vh = recyclerView.findViewHolderForAdapterPosition(pos);
@@ -810,7 +809,8 @@ public class DosyaSecicipaneli extends AppCompatActivity {
                 CheckBox cb = itemView.findViewById(R.id.cbSecim);
                 if (cb != null) cb.setChecked(secilen.contains(yol));
                 boolean secili = secilen.contains(yol);
-                itemView.setBackgroundColor(secili ? 0x557c4dff : 0x00000000);
+                if (secili) itemView.setBackgroundColor(0x557c4dff);
+                else itemView.setBackgroundResource(R.drawable.item_focus_bg);
             }
         }
 
@@ -820,18 +820,18 @@ public class DosyaSecicipaneli extends AppCompatActivity {
 
     private void dosyaSec(File f) {
         if ("m3u_import".equals(mode) || "backup_import".equals(mode)) {
-            
+
             Intent resultIntent = new Intent();
             resultIntent.putExtra("selected_file_path", f.getAbsolutePath());
             setResult(RESULT_OK, resultIntent);
             finish();
         } else {
-            
+
             onDosyaSecimDegisti(new DosyaOge(f));
         }
     }
 
-    
+
     private void islemMenusuGoster(DosyaOge oge) {
         File dosya = oge.dosya;
 
@@ -852,7 +852,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
         etiketler.add("✏️  Yeniden Adlandır");
         eylemler.add(() -> yenidenAdlandir(dosya));
 
-        
+
         if (!dosya.isDirectory()) {
             etiketler.add("📡  WiFi ile Gönder");
             eylemler.add(() -> tekDosyaGonder(dosya));
@@ -871,15 +871,15 @@ public class DosyaSecicipaneli extends AppCompatActivity {
                 .show();
     }
 
-    
+
     private void tekDosyaGonder(File dosya) {
-        
+
         List<File> tekListe = new ArrayList<>();
         tekListe.add(dosya);
         startDeviceScanActivity(tekListe, false);
     }
 
-    
+
     private void kopyala(File dosya) {
         panoKaynak = dosya;
         panoIslem  = PANO_KOPYA;
@@ -887,7 +887,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
         toast("Kopyalandı: " + dosya.getName());
     }
 
-    
+
     private void kes(File dosya) {
         panoKaynak = dosya;
         panoIslem  = PANO_KES;
@@ -895,7 +895,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
         toast("Kesildi: " + dosya.getName());
     }
 
-    
+
     private void yapistir() {
         if (panoKaynak == null || panoIslem == PANO_YOK) {
             toast("Panoda öğe yok. Önce Kopyala veya Kes yapın.");
@@ -928,7 +928,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
         dosyalariYukle();
     }
 
-    
+
     private void yenidenAdlandir(File dosya) {
         EditText et = inputField(dosya.getName());
         new AlertDialog.Builder(this).setTitle("✏️ Yeniden Adlandır").setView(et)
@@ -944,7 +944,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
                 .setNegativeButton("İptal", null).show();
     }
 
-    
+
     private void silOnay(List<File> dosyalar) {
         String mesaj = dosyalar.size() == 1
                 ? "\"" + dosyalar.get(0).getName() + "\" silinsin mi?\nBu işlem geri alınamaz!"
@@ -963,7 +963,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
                 .setNegativeButton("İptal", null).show();
     }
 
-    
+
     private void yeniKlasorOlustur() {
         EditText et = inputField("Yeni Klasör");
         new AlertDialog.Builder(this).setTitle("📁 Yeni Klasör").setView(et)
@@ -978,7 +978,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
                 .setNegativeButton("İptal", null).show();
     }
 
-    
+
     private void secimModuToggle() {
         if (secimModu) {
             if (!secilen.isEmpty()) secimIslemMenusu();
@@ -990,7 +990,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
             adapter.setSecilen(secilen);
             adapter.notifyDataSetChanged();
             arayuzGuncelle();
-            toast("Seçim modu — öğelere tıklayın, sonra ✓ butonuna basın");
+            toast("Seçim modu — kutuları işaretleyin, sonra ✓ butonuna basın");
         }
     }
 
@@ -1006,29 +1006,29 @@ public class DosyaSecicipaneli extends AppCompatActivity {
     private void secimIslemMenusu() {
         if (secilen.isEmpty()) { toast("Hiçbir öğe seçilmedi"); return; }
 
-        
+
         String[] islemler = {"📋  Kopyala", "✂️  Kes", "📡  Seçilenleri Gönder", "🗑  Hepsini Sil", "☐  Seçimi Temizle", "✖  İptal"};
 
         new AlertDialog.Builder(this)
                 .setTitle(secilen.size() + " öğe seçili")
                 .setItems(islemler, (d, i) -> {
                     switch (i) {
-                        case 0: 
+                        case 0:
                             if (secilen.size() == 1) kopyala(new File(secilen.iterator().next()));
                             else toast("Çoklu kopyalama için tek tek seçin");
                             secimModuKapat(); break;
-                        case 1: 
+                        case 1:
                             if (secilen.size() == 1) kes(new File(secilen.iterator().next()));
                             else toast("Çoklu kesme için tek tek seçin");
                             secimModuKapat(); break;
-                        case 2: 
+                        case 2:
                             cokluDosyaGonder();
                             secimModuKapat(); break;
-                        case 3: 
+                        case 3:
                             List<File> l = new ArrayList<>();
                             for (String y : secilen) l.add(new File(y));
                             silOnay(l); break;
-                        case 4: 
+                        case 4:
                             secilen.clear();
                             adapter.setSecilen(secilen);
                             adapter.notifyDataSetChanged();
@@ -1047,7 +1047,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
         intent.putStringArrayListExtra("file_paths", filePaths);
         startActivity(intent);
     }
-    
+
     private void cokluDosyaGonder() {
         if (secilen.isEmpty()) {
             toast("Lütfen önce dosyaları seçin");
@@ -1065,7 +1065,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
         startDeviceScanActivity(seciliDosyalar, true);
     }
 
-    
+
     private void startMultiFileTransfer(RemoteDevice target, List<File> dosyalar) {
         Log.d("📤[MultiFile]", "Çoklu transfer başlatılıyor: " + dosyalar.size() + " dosya -> " + target.getIpAddress());
 
@@ -1074,7 +1074,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
         intent.putExtra("target_name", target.getName());
         intent.putExtra("multi_file_mode", true);
 
-        
+
         ArrayList<String> filePaths = new ArrayList<>();
         for (File f : dosyalar) {
             filePaths.add(f.getAbsolutePath());
@@ -1084,7 +1084,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
         startActivity(intent);
     }
 
-    
+
     private void bilgiGoster(File f) {
         SimpleDateFormat sdf = new SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault());
 
@@ -1097,7 +1097,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
         AlertDialog dialog = b.show();
 
         if (f.isDirectory()) {
-            
+
             new Thread(() -> {
                 long[] sonuc = klasorBilgisiHesapla(f);
                 long toplamDosya = sonuc[0];
@@ -1143,7 +1143,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
         }
         return new long[]{dosyaSayisi, toplamBoyut};
     }
-    
+
     private void breadcrumbGuncelle() {
         breadcrumbLayout.removeAllViews();
         List<File> yol = new ArrayList<>();
@@ -1171,7 +1171,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
         }
     }
 
-    
+
     private void panoBilgiGuncelle() {
         if (tvPanoBilgi == null) return;
         if (panoKaynak == null || panoIslem == PANO_YOK) {
@@ -1187,7 +1187,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
         if (tvSecimSayisi != null)
             tvSecimSayisi.setText(secimModu && !secilen.isEmpty() ? secilen.size() + " seçili" : "");
 
-        
+
         if (btnTumunuSec != null) {
             btnTumunuSec.setVisibility(secimModu ? View.VISIBLE : View.GONE);
         }
@@ -1195,11 +1195,11 @@ public class DosyaSecicipaneli extends AppCompatActivity {
     private boolean isAlertDialogAcik() {
         View focused = getCurrentFocus();
         if (focused == null) return false;
-        
-        
+
+
         android.view.ViewParent parent = focused.getParent();
         while (parent != null) {
-            if (parent instanceof android.widget.ListView) return true; 
+            if (parent instanceof android.widget.ListView) return true;
             if (parent instanceof android.widget.ScrollView) return true;
             if (parent instanceof android.widget.Button) return true;
             parent = parent instanceof android.view.View
@@ -1211,7 +1211,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
         runOnUiThread(() -> {
             View focused = getCurrentFocus();
 
-            
+
             if (focused != null) {
                 int keyCode = -1;
                 switch (command) {
@@ -1226,7 +1226,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
                 boolean focusAnaWindowda = getWindow().getDecorView()
                         .findViewById(focused.getId()) != null;
 
-                
+
                 if (!focusAnaWindowda && keyCode != -1) {
                     focused.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, keyCode));
                     focused.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, keyCode));
@@ -1234,14 +1234,16 @@ public class DosyaSecicipaneli extends AppCompatActivity {
                 }
             }
 
-            
+
             switch (command) {
                 case "BACK":
                     onKeyDown(KeyEvent.KEYCODE_BACK,
                             new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_BACK));
                     break;
                 case "DPAD_CENTER":
-                    if (focused != null) {
+                    if (focused instanceof CheckBox) {
+                        focused.performClick();
+                    } else if (focused != null) {
                         focused.dispatchKeyEvent(
                                 new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DPAD_CENTER));
                         focused.dispatchKeyEvent(
@@ -1260,7 +1262,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
     private void navigate(int direction) {
         View focused = getCurrentFocus();
         if (focused == null) {
-            
+
             if (recyclerView != null && recyclerView.getChildCount() > 0) {
                 View first = recyclerView.getChildAt(0);
                 View layoutAc = first.findViewById(R.id.layoutAc);
@@ -1273,7 +1275,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
         if (next != null) {
             next.requestFocus();
         } else {
-            
+
             focused.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN,
                     direction == View.FOCUS_UP ? KeyEvent.KEYCODE_DPAD_UP :
                             direction == View.FOCUS_DOWN ? KeyEvent.KEYCODE_DPAD_DOWN :
@@ -1281,7 +1283,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
                                             KeyEvent.KEYCODE_DPAD_RIGHT));
         }
     }
-    
+
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         if (keyCode == KeyEvent.KEYCODE_BACK || keyCode == KeyEvent.KEYCODE_ESCAPE) {
@@ -1306,7 +1308,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
         return super.onKeyDown(keyCode, event);
     }
 
-    
+
     private boolean dosyaKopyala(File kaynak, File hedef) {
         if (kaynak.isDirectory()) return klasorKopyala(kaynak, hedef);
         try {
@@ -1371,14 +1373,14 @@ public class DosyaSecicipaneli extends AppCompatActivity {
         return (d >= 0) ? n.substring(d + 1).toLowerCase() : "";
     }
 
-    
+
     private void wifiIleGonder() {
         if (secilen.isEmpty()) {
             toast("Lütfen önce bir dosya seçin");
             return;
         }
 
-        
+
         String firstSelected = secilen.iterator().next();
         pendingFile = new File(firstSelected);
         pendingFileToSend = pendingFile.getName();
@@ -1386,7 +1388,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
         Log.d("📤[FileClient]", "Gönderilecek dosya: " + pendingFileToSend);
         toast("Cihaz aranıyor...");
 
-        
+
         NetworkScanner scanner = new NetworkScanner(this);
         scanner.scanForDevices(new NetworkScanner.ScanCallback() {
             @Override
@@ -1432,10 +1434,10 @@ public class DosyaSecicipaneli extends AppCompatActivity {
 
         Log.d("📤[FileClient]", "Transfer başlatılıyor: " + pendingFile.getName() + " -> " + target.getIpAddress());
 
-        
+
         FileTransferActivity.start(this, target.getIpAddress(), target.getName(), pendingFile.getAbsolutePath());
 
-        
+
         pendingFile = null;
         pendingFileToSend = null;
     }
@@ -1449,17 +1451,17 @@ public class DosyaSecicipaneli extends AppCompatActivity {
 
 
 
-    
-    
-    
+
+
+
     public static class DosyaOge {
         public final File dosya;
         public DosyaOge(File d) { this.dosya = d; }
     }
 
-    
-    
-    
+
+
+
     public static class DosyaAdapter extends RecyclerView.Adapter<DosyaAdapter.VH> {
 
         interface AcListener      { void onAc(DosyaOge o); }
@@ -1473,7 +1475,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
         private int         gorunum   = GORUNUM_LISTE;
         private boolean     secimModu = false;
         private Set<String> secilen   = new HashSet<>();
-        private String mode = "browser"; 
+        private String mode = "browser";
 
         DosyaAdapter(List<DosyaOge> l, AcListener a, IslemListener i, SecimListener s) {
             liste = l; ac = a; islem = i; secim = s;
@@ -1550,7 +1552,11 @@ public class DosyaSecicipaneli extends AppCompatActivity {
 
             if (h.cbSecim != null) {
                 h.cbSecim.setVisibility(secimModu ? View.VISIBLE : View.GONE);
+                h.cbSecim.setFocusable(secimModu);
+                h.cbSecim.setFocusableInTouchMode(secimModu);
                 h.cbSecim.setChecked(secilen.contains(f.getAbsolutePath()));
+                // Dokunmatik ve dpad OK tuşu aynı yolu kullanır
+                h.cbSecim.setOnClickListener(v -> secim.onSecimDegisti(oge));
             }
 
             if (h.layoutAc != null) {
@@ -1568,6 +1574,7 @@ public class DosyaSecicipaneli extends AppCompatActivity {
                 if (h.layoutAc != null) {
                     h.layoutAc.setNextFocusUpId(pos == 0 ? R.id.btnAnaDizin : View.NO_ID);
                 }
+                h.layoutAc.setNextFocusLeftId(secimModu ? R.id.cbSecim : View.NO_ID);
                 h.layoutAc.setOnClickListener(v -> {
                     Log.d("SECIM", "Click öncesi focus: " + v.getRootView().findFocus());
                     ac.onAc(oge);

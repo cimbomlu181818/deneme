@@ -18,7 +18,7 @@ import com.example.livetvapp.R;
 import com.example.livetvapp.database.ChannelRepository;
 import com.example.livetvapp.Adapter.Bolum;
 import com.example.livetvapp.Adapter.DiziAdapter;
-import com.example.livetvapp.database.DiziCache;   
+import com.example.livetvapp.database.DiziCache;
 import com.example.livetvapp.database.DiziParser;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -44,6 +44,8 @@ public class DiziPaneli {
     private boolean parseYapildi  = false;
     private String  parsedM3UName = null;
     private ChannelRepository channelRepository;
+    private int     yukluAdet       = 0;
+    private String  bekleyenDiziAdi = null;
     private Handler           mainHandler;
     public DiziAdapter getAdapter() { return adapter; }
     public interface BolumSecimDinleyici { void onBolumSecildi(Dizi dizi, Sezon sezon, Bolum bolum); }
@@ -94,10 +96,10 @@ public class DiziPaneli {
         );
         recyclerView.setAdapter(adapter);
         adapter.setOnDiziDetayIstekListener((dizi, pozisyon) -> {
-            
-            
-            
-            goster(); 
+
+
+
+            goster();
             if (yukleniyorText != null) {
                 yukleniyorText.setText("Sezon bilgisi yükleniyor...");
                 yukleniyorText.setVisibility(View.VISIBLE);
@@ -122,7 +124,7 @@ public class DiziPaneli {
                                     dizi.setSezonlar(sezonlar);
                                     if (yukleniyorText != null)
                                         yukleniyorText.setVisibility(View.GONE);
-                                    
+
                                     adapter.sezonlarYuklendi(dizi, pozisyon);
                                 }
                                 @Override
@@ -185,6 +187,7 @@ public class DiziPaneli {
         System.out.println("=== DiziPaneli: SERIES MODUNA GEÇİLİYOR === kategori=" + kategori);
         if (kategori == null || kategori.isEmpty()) {
             adapter.setDiziler(new ArrayList<>());
+            yukluAdet = 0;
             guncelleBosGorunum(null, false);
             goster();
             return;
@@ -195,13 +198,16 @@ public class DiziPaneli {
             filtreliDiziler = new ArrayList<>(cachedDiziler);
             currentPage     = 0;
             adapter.setDiziler(getPagedDiziler(0, PAGE_SIZE));
+            yukluAdet = Math.min(PAGE_SIZE, filtreliDiziler.size());
             guncelleBosGorunum(filtreliDiziler, false);
             if (recyclerView != null) recyclerView.scrollToPosition(0);
             aktifKategori = kategori;
             goster();
+            bekleyeniUygula(true);
             return;
         }
         adapter.setDiziler(new ArrayList<>());
+        yukluAdet = 0;
         guncelleBosGorunum(null, true);
         goster();
         final String finalKategori = kategori;
@@ -229,10 +235,12 @@ public class DiziPaneli {
                                 }
                                 List<Dizi> ilkSayfa = getPagedDiziler(0, PAGE_SIZE);
                                 adapter.setDiziler(ilkSayfa);
+                                yukluAdet = ilkSayfa.size();
                                 guncelleBosGorunum(filtreliDiziler, false);
                                 if (recyclerView != null) recyclerView.scrollToPosition(0);
                                 System.out.println("✅ Kategori [" + finalKategori
                                         + "] parse tamamlandı: " + diziler.size() + " dizi");
+                                bekleyeniUygula(true);
                             });
                         }).start();
                     }
@@ -294,13 +302,10 @@ public class DiziPaneli {
         }
         return result;
     }
+    // Eski "M3U gizleme" sistemi kaldırıldı: gizleme artık sadece kategori/kanal düzeyinde
+    // (gizli_kategoriler / gizli_kanallar). "gizli_m3ular" kaydı okunmaz, hep boş döner.
     private Set<String> getGizliM3UAdilar() {
-        SharedPreferences prefs = activity.getSharedPreferences(PREF_GIZLI_M3U, Context.MODE_PRIVATE);
-        Set<String> result = new HashSet<>();
-        for (Map.Entry<String, ?> e : prefs.getAll().entrySet()) {
-            if (Boolean.TRUE.equals(e.getValue())) result.add(e.getKey());
-        }
-        return result;
+        return new HashSet<>();
     }
     private Set<String> getGizliKategoriler() {
         SharedPreferences prefs = activity.getSharedPreferences(PREF_GIZLI_KATEGORI, Context.MODE_PRIVATE);
@@ -315,12 +320,16 @@ public class DiziPaneli {
         parsedM3UName = null;
         tumDiziler.clear();
         filtreliDiziler.clear();
+        yukluAdet = 0;
+        bekleyenDiziAdi = null;
         DiziCache.getInstance().invalidateAll();
         System.out.println("🗑️ DiziPaneli tüm cache temizlendi");
     }
     public void switchToNormalMode() {
         System.out.println("=== DiziPaneli: NORMAL MODA GEÇİLİYOR ===");
         filtreliDiziler.clear();
+        yukluAdet = 0;
+        bekleyenDiziAdi = null;
         if (adapter != null) adapter.setDiziler(new ArrayList<>());
         setMarginStart(0);
         gizle();
@@ -341,9 +350,71 @@ public class DiziPaneli {
         currentPage++;
         List<Dizi> more = getPagedDiziler(currentPage * PAGE_SIZE, PAGE_SIZE);
         mainHandler.post(() -> {
-            if (!more.isEmpty()) adapter.addDiziler(more);
+            if (!more.isEmpty()) {
+                adapter.addDiziler(more);
+                yukluAdet += more.size();
+            }
             isLoading = false;
         });
+    }
+    private static String normalizeAd(String s) {
+        if (s == null) return "";
+        return s.toLowerCase(java.util.Locale.ROOT).replaceAll("[^\\p{L}\\p{N}]+", "");
+    }
+    private int diziIndeksiBul(String diziAdi) {
+        if (diziAdi == null) return -1;
+        for (int i = 0; i < filtreliDiziler.size(); i++) {
+            if (diziAdi.equals(filtreliDiziler.get(i).getAd())) return i;
+        }
+        String hedef = normalizeAd(diziAdi);
+        if (hedef.isEmpty()) return -1;
+        for (int i = 0; i < filtreliDiziler.size(); i++) {
+            if (hedef.equals(normalizeAd(filtreliDiziler.get(i).getAd()))) return i;
+        }
+        return -1;
+    }
+    /** Arama sonucundan gelen diziyi listede yüklü hale getirir. Bulunan gerçek dizi adını döner;
+     *  liste henüz parse ediliyorsa null döner ve parse bitince kendisi odaklanır. */
+    public String diziyiGorunurYap(String diziAdi) {
+        bekleyenDiziAdi = diziAdi;
+        return bekleyeniUygula(false);
+    }
+    private String bekleyeniUygula(boolean odakla) {
+        if (bekleyenDiziAdi == null) return null;
+        int idx = diziIndeksiBul(bekleyenDiziAdi);
+        if (idx < 0) {
+            System.out.println("🎯 [ARAMA-ODAK] dizi listede yok: " + bekleyenDiziAdi
+                    + " | liste=" + filtreliDiziler.size() + " | bekleniyor=" + filtreliDiziler.isEmpty());
+            if (!filtreliDiziler.isEmpty()) bekleyenDiziAdi = null;
+            return null;
+        }
+        String gercekAd = filtreliDiziler.get(idx).getAd();
+        bekleyenDiziAdi = null;
+        if (idx >= yukluAdet) {
+            int hedefSayfa = idx / PAGE_SIZE;
+            int baslangic  = yukluAdet;
+            int bitis      = Math.min((hedefSayfa + 1) * PAGE_SIZE, filtreliDiziler.size());
+            List<Dizi> ek  = new ArrayList<>(filtreliDiziler.subList(baslangic, bitis));
+            adapter.addDiziler(ek);
+            yukluAdet   = bitis;
+            currentPage = hedefSayfa;
+            System.out.println("🎯 [ARAMA-ODAK] sayfalar yüklendi: idx=" + idx + " | yukluAdet=" + yukluAdet);
+        }
+        System.out.println("🎯 [ARAMA-ODAK] bulundu: " + gercekAd + " | idx=" + idx);
+        if (odakla) diziyeOdaklan(gercekAd);
+        return gercekAd;
+    }
+    private void diziyeOdaklan(String ad) {
+        if (recyclerView == null || adapter == null) return;
+        recyclerView.postDelayed(() -> {
+            int poz = adapter.diziAdindanPozisyonBul(ad);
+            recyclerView.scrollToPosition(poz);
+            recyclerView.postDelayed(() -> {
+                RecyclerView.ViewHolder vh = recyclerView.findViewHolderForAdapterPosition(poz);
+                if (vh != null && vh.itemView != null) vh.itemView.requestFocus();
+                else recyclerView.requestFocus();
+            }, 100);
+        }, 300);
     }
     private List<Dizi> getPagedDiziler(int offset, int limit) {
         List<Dizi> result = new ArrayList<>();
@@ -385,17 +456,18 @@ public class DiziPaneli {
 
         if (favoriDiziAdlari == null || favoriDiziAdlari.isEmpty()) {
             filtreliDiziler = new ArrayList<>();
+            yukluAdet = 0;
             if (adapter != null) adapter.setDiziler(new ArrayList<>());
             guncelleBosGorunum(null, false);
             goster();
             return;
         }
 
-        
+
         String CACHE_KEY_FAVORITES = "FAVORITES_SERIES";
         List<Dizi> cachedFavoriler = DiziCache.getInstance().get(CACHE_KEY_FAVORITES);
         if (cachedFavoriler != null) {
-            
+
             List<Dizi> filtrelenmisFavoriler = new ArrayList<>();
             for (String favoriAd : favoriDiziAdlari) {
                 for (Dizi dizi : cachedFavoriler) {
@@ -406,6 +478,7 @@ public class DiziPaneli {
                 }
             }
             filtreliDiziler = filtrelenmisFavoriler;
+            yukluAdet = filtrelenmisFavoriler.size();
             if (adapter != null) adapter.setDiziler(filtrelenmisFavoriler);
             guncelleBosGorunum(filtrelenmisFavoriler, false);
             if (recyclerView != null) recyclerView.scrollToPosition(0);
@@ -414,7 +487,7 @@ public class DiziPaneli {
             return;
         }
 
-        
+
         guncelleBosGorunum(null, true);
         goster();
 
@@ -424,12 +497,12 @@ public class DiziPaneli {
                     public void onChannelsLoaded(List<Channel> channels, boolean fromCache) {
                         new Thread(() -> {
                             try {
-                                
+
                                 List<Channel> filtrelenmisKanallar = gizliKanallariFiltreele(channels, null, null);
-                                
+
                                 List<Dizi> tumDizilerParsed = DiziParser.parseM3UForDiziler(filtrelenmisKanallar);
 
-                                
+
                                 List<Dizi> favoriDiziler = new ArrayList<>();
                                 for (String favoriAd : favoriDiziAdlari) {
                                     for (Dizi dizi : tumDizilerParsed) {
@@ -440,11 +513,12 @@ public class DiziPaneli {
                                     }
                                 }
 
-                                
+
                                 DiziCache.getInstance().put(CACHE_KEY_FAVORITES, tumDizilerParsed);
 
                                 mainHandler.post(() -> {
                                     filtreliDiziler = favoriDiziler;
+                                    yukluAdet = favoriDiziler.size();
                                     if (adapter != null) adapter.setDiziler(favoriDiziler);
                                     guncelleBosGorunum(favoriDiziler, false);
                                     if (recyclerView != null) recyclerView.scrollToPosition(0);
