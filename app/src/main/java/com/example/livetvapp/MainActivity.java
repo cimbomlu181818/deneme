@@ -32,10 +32,10 @@ public class MainActivity extends AppCompatActivity {
     private AppDatabase     database;
     private ApiHelper       apiHelper;
 
-    
+
     private com.example.livetvapp.dosyatransferi.RemoteControlServer remoteServer;
     private FileTransferServer fileServer;
-    private RemoteCommandServer remoteCommandServer;  
+    private RemoteCommandServer remoteCommandServer;
     public boolean isRemoteClientConnected() {
         return remoteCommandServer != null && remoteCommandServer.hasActiveClient();
     }
@@ -44,34 +44,43 @@ public class MainActivity extends AppCompatActivity {
     public void setDosyaSeciciAktif(boolean aktif) {
         dosyaSeciciAktif = aktif;
     }
-    
+
     private EditText activeEditText = null;
 
-    
+
     private final Handler  kontrolHandler  = new Handler(Looper.getMainLooper());
     private       Runnable kontrolRunnable10;
     private       Runnable kontrolRunnable20;
 
-    private static final long DAK_10 = 10 * 60 * 1000L; 
-    private static final long DAK_20 = 20 * 60 * 1000L; 
+    private static final long DAK_10 = 10 * 60 * 1000L;
+    private static final long DAK_20 = 20 * 60 * 1000L;
 
-    
+    // Arka plana alinirken yayin durduruldu mu? (one gelince devam ettirmek icin)
+    private boolean arkaplanDuraklatti = false;
+    // anakontrol.temizlikYap() bir kez calistirildi mi? (onDestroy'da ikinci kez calismasin)
+    private boolean temizlikYapildi = false;
+    // finish() kod tarafindan mi cagrildi? (Son uygulamalar'dan silinince cagrilmaz)
+    private boolean kendiFinishCagrildi = false;
+    // Geri tusuyla cikista sureci tamamen sonlandir
+    private boolean surecSonlandir = false;
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
 
-        
+
         String deviceType = DeviceDetector.getDeviceTypeString(this);
         Log.d("DEVICE_TYPE", "Cihaz Tipi: " + deviceType);
         System.out.println("📱 Cihaz Tipi: " + deviceType);
 
-        
+
         if (!DeviceDetector.isPhone(this)) {
             Log.d("DEVICE_TYPE", "→ SUNUCU MODU (kontrol edilen cihaz)");
         } else {
             Log.d("DEVICE_TYPE", "→ İSTEMCİ MODU (kontrol eden cihaz)");
         }
 
-        
+
         apiHelper = new ApiHelper();
 
         SharedPreferences girisTercihleri = getSharedPreferences("azsh_giris", Context.MODE_PRIVATE);
@@ -95,7 +104,7 @@ public class MainActivity extends AppCompatActivity {
                 boolean erisim = sonuc.optBoolean("erisim", false);
 
                 if (erisim) {
-                    
+
                 } else if ("mail_dogrulanmadi".equals(durum)) {
                     startActivity(new Intent(MainActivity.this, LoginActivity.class));
                     finish();
@@ -133,20 +142,20 @@ public class MainActivity extends AppCompatActivity {
         anakontrol = new Anakontrol(this);
         anakontrol.baslat();
 
-        
+
         startRemoteServer();
         startFileServer();
 
-        
+
         periyodikKontrolBaslat();
 
-        
+
         if (!DeviceDetector.isPhone(this)) {
             startRemoteControlServer();
         }
     }
 
-    
+
 
 
     private void startRemoteControlServer() {
@@ -175,7 +184,7 @@ public class MainActivity extends AppCompatActivity {
                             });
                         }
                     });
-            
+
             androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(this)
                     .registerReceiver(
                             new android.content.BroadcastReceiver() {
@@ -197,7 +206,7 @@ public class MainActivity extends AppCompatActivity {
             remoteCommandServer = null;
         }
     }
-    
+
     private boolean isInsideDialog(View view) {
         ViewParent parent = view.getParent();
         while (parent != null) {
@@ -213,13 +222,13 @@ public class MainActivity extends AppCompatActivity {
         return false;
     }
     private void handleRemoteCommand(String command, String data) {
-        
+
         android.content.Intent broadcastIntent = new android.content.Intent("com.example.livetvapp.REMOTE_COMMAND");
         broadcastIntent.putExtra("command", command);
         broadcastIntent.putExtra("data", data);
         androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(this).sendBroadcast(broadcastIntent);
 
-        
+
         if (dosyaSeciciAktif) return;
         View focused = getCurrentFocus();
         if (focused != null && isInsideDialog(focused)) {
@@ -271,7 +280,7 @@ public class MainActivity extends AppCompatActivity {
                 }
                 break;
             case "START_KEYBOARD_MODE":
-                
+
                 if (focused == null) focused = getCurrentFocus();
                 if (focused instanceof EditText) {
                     activeEditText = (EditText) focused;
@@ -325,7 +334,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    
+
     private int getKeyCodeFromCommand(String command) {
         switch (command) {
             case "DPAD_UP": return KeyEvent.KEYCODE_DPAD_UP;
@@ -337,7 +346,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    
+
     private void startRemoteServer() {
         if (remoteServer == null) {
             remoteServer = new com.example.livetvapp.dosyatransferi.RemoteControlServer(this);
@@ -397,7 +406,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    
+
     private void periyodikKontrolBaslat() {
         kontrolRunnable10 = () -> erisimKontrolYap();
         kontrolRunnable20 = () -> erisimKontrolYap();
@@ -411,12 +420,12 @@ public class MainActivity extends AppCompatActivity {
         if (kontrolRunnable20 != null) kontrolHandler.removeCallbacks(kontrolRunnable20);
     }
 
-    
+
     private String cihazIdGetir() {
         return android.provider.Settings.Secure.getString(getContentResolver(), android.provider.Settings.Secure.ANDROID_ID);
     }
 
-    
+
     private void erisimKontrolYap() {
         if (apiHelper == null) return;
 
@@ -436,7 +445,7 @@ public class MainActivity extends AppCompatActivity {
                 boolean erisim = sonuc.optBoolean("erisim", false);
 
                 if (erisim) {
-                    
+
                 } else if ("mail_dogrulanmadi".equals(durum)) {
                     Intent intent = new Intent(MainActivity.this, LoginActivity.class);
                     intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
@@ -462,7 +471,7 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    
+
     @Override
     public void onPictureInPictureModeChanged(
             boolean isInPictureInPictureMode, Configuration newConfig) {
@@ -527,6 +536,7 @@ public class MainActivity extends AppCompatActivity {
             boolean handled = anakontrol.onKeyDown(keyCode, event);
             if (handled) return true;
             if (keyCode == KeyEvent.KEYCODE_BACK || keyCode == KeyEvent.KEYCODE_ESCAPE) {
+                surecSonlandir = true;
                 finish();
                 return true;
             }
@@ -539,27 +549,89 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         setupFullScreen();
         if (anakontrol != null) anakontrol.onResume();
+
+        // Arka plana alinirken durdurduysak, one gelince devam ettir
+        if (arkaplanDuraklatti) {
+            kontrolHandler.postDelayed(() -> {
+                if (!arkaplanDuraklatti || anakontrol == null || isFinishing()) return;
+                arkaplanDuraklatti = false;
+                anakontrol.resumeVideo();
+            }, 300);
+        }
     }
 
+    // Uygulama gorunmez olunca (Home, Son uygulamalar, ekran kapanmasi vb.) yayini durdur.
+    @Override
+    protected void onStop() {
+        super.onStop();
+
+        if (isChangingConfigurations() || isFinishing() || anakontrol == null) return;
+
+        // PiP penceresi kapatildiysa uygulamayi tamamen kapat
+        boolean pipde = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
+                && isInPictureInPictureMode();
+        if (pipde) {
+            surecSonlandir = true;
+            finishAndRemoveTask();
+            return;
+        }
+
+        try {
+            org.videolan.libvlc.MediaPlayer mp = anakontrol.getCurrentMediaPlayer();
+            if (mp != null && mp.isPlaying()) {
+                arkaplanDuraklatti = true;
+                boolean canli = com.example.livetvapp.paneller.Icerikpaneli.TIP_CANLI_TV
+                        .equals(anakontrol.getOynayanIcerikTipi());
+                if (canli) {
+                    mp.stop();    // canli yayin: geri gelince canli noktadan baslasin
+                } else {
+                    mp.pause();   // film/dizi: kaldigi yerden devam etsin
+                }
+                if (anakontrol.getBar() != null) {
+                    anakontrol.getBar().updatePlayPauseButton(false);
+                }
+            }
+        } catch (Exception e) {
+            Log.e("MainActivity", "Arka planda durdurma hatasi: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public void finish() {
+        kendiFinishCagrildi = true;
+        super.finish();
+    }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        
+
+        kontrolHandler.removeCallbacksAndMessages(null);
         periyodikKontrolIptal();
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
-        
-        stopRemoteServer();
-        stopFileServer();
-        stopRemoteControlServer();  
+        try { stopRemoteServer(); } catch (Exception ignored) {}
+        try { stopFileServer(); } catch (Exception ignored) {}
+        try { stopRemoteControlServer(); } catch (Exception ignored) {}
 
-        if (anakontrol != null) {
-            anakontrol.temizlikYap();
+        try {
+            if (anakontrol != null && !temizlikYapildi) {
+                temizlikYapildi = true;
+                anakontrol.temizlikYap();
+            }
+        } catch (Exception e) {
+            Log.e("MainActivity", "onDestroy temizlik hatasi: " + e.getMessage());
+        }
+
+        // Son uygulamalar'dan silinince (finish() cagrilmadan yok edilir) veya
+        // geri tusuyla cikilinca sureci tamamen sonlandir.
+        // Giris ekranina yonlendirme gibi normal finish() cagrilarinda sonlandirilmaz.
+        if (isFinishing() && (surecSonlandir || !kendiFinishCagrildi)) {
+            android.os.Process.killProcess(android.os.Process.myPid());
         }
     }
 
-    
+
     private void bakimEkraniniGoster(String mesaj, String url) {
         runOnUiThread(() -> {
             android.widget.FrameLayout kaplama = new android.widget.FrameLayout(this);
@@ -637,7 +709,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    
+
     public Anakontrol getAnakontrol() {
         return anakontrol;
     }
