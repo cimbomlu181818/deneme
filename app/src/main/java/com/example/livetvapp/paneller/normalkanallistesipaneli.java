@@ -104,11 +104,11 @@ public class normalkanallistesipaneli {
                 int gorunan    = lm.getChildCount();
                 int toplam     = lm.getItemCount();
                 int ilkGorunen = lm.findFirstVisibleItemPosition();
-                
+
                 if (dy > 0 && !isLoadingMore && (gorunan + ilkGorunen) >= toplam - LOAD_AHEAD) {
                     daha_fazla_yukle();
                 }
-                
+
                 if (dy < 0 && !ustYukleniyor && !tumUstKanallarYuklendi && ilkGorunen <= 5) {
                     yukari_yukle();
                 }
@@ -190,7 +190,7 @@ public class normalkanallistesipaneli {
             });
             return;
         }
-        
+
         if (ustOffset <= 0) {
             tumUstKanallarYuklendi = true;
             return;
@@ -211,6 +211,10 @@ public class normalkanallistesipaneli {
         ustYukleniyor = false;
         if (yeniOffset == 0) tumUstKanallarYuklendi = true;
     }
+    /** Listede şu an gösterilen kayıt sayısı. */
+    public int listeAdedi() {
+        return adapter != null ? adapter.getItemCount() : 0;
+    }
     public void dbSifirla() {
         dbOffset      = 0;
         dbBitti       = false;
@@ -221,7 +225,7 @@ public class normalkanallistesipaneli {
         if (adapter      != null) adapter.setKanallar(new ArrayList<>());
         if (recyclerView != null) recyclerView.setVisibility(View.GONE);
         if (bosText      != null) bosText.setVisibility(View.VISIBLE);
-        daha_fazla_yukle(); 
+        daha_fazla_yukle();
     }
     public void setMarginStart(int marginDp) {
         if (recyclerView == null) return;

@@ -4,6 +4,7 @@ import android.os.Looper;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.widget.Button;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.RecyclerView;
@@ -19,17 +20,18 @@ public class Dokunmatik {
     private boolean aktif        = true;
     private boolean hareketVar   = false;
     private boolean islemYapildi = false;
+    private boolean kaydirmaVar  = false; // parmak dokunma toleransını aştı: bu bir tık değil
     private float   baslangicX, baslangicY;
     private float   swipeEsikPx;
 
     private final Runnable tiklamaRunnable = () -> {
-        if (!hareketVar && !islemYapildi) {
+        if (!hareketVar && !kaydirmaVar && !islemYapildi) {
             islemYapildi = true;
             handleTekTik();
         }
     };
     private final Runnable uzunBasmaRunnable = () -> {
-        if (!hareketVar && !islemYapildi) {
+        if (!hareketVar && !kaydirmaVar && !islemYapildi) {
             islemYapildi = true;
             handleUzunBasma();
         }
@@ -57,6 +59,7 @@ public class Dokunmatik {
                 baslangicX   = event.getX();
                 baslangicY   = event.getY();
                 hareketVar   = false;
+                kaydirmaVar  = false;
                 islemYapildi = false;
                 handler.postDelayed(tiklamaRunnable,   TIKLA_BEKLE_SURE);
                 handler.postDelayed(uzunBasmaRunnable, UZUN_BASMA_SURE);
@@ -65,6 +68,15 @@ public class Dokunmatik {
                 if (!aktif) return false;
                 float dx = event.getX() - baslangicX;
                 float dy = event.getY() - baslangicY;
+                // Parmak Android'in dokunma toleransını (~8dp) aştıysa bu bir kaydırmadır, tık değil.
+                // Önceden 40dp'ye kadar hareket "tek tık" sayılıp odaktaki düğmeye Enter gönderiliyordu;
+                // bu da film listesini kaydırırken kategoriyi yeniden seçip listeyi başa atıyordu.
+                int tolerans = ViewConfiguration.get(activity).getScaledTouchSlop();
+                if (!kaydirmaVar && (Math.abs(dx) > tolerans || Math.abs(dy) > tolerans)) {
+                    kaydirmaVar = true;
+                    handler.removeCallbacks(tiklamaRunnable);
+                    handler.removeCallbacks(uzunBasmaRunnable);
+                }
                 if (!hareketVar && (Math.abs(dx) > swipeEsikPx || Math.abs(dy) > swipeEsikPx)) {
                     hareketVar = true;
                     handler.removeCallbacks(tiklamaRunnable);

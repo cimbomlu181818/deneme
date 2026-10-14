@@ -1063,6 +1063,14 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
         if (bekleyenKategoriYukle != null) {
             mainHandler.removeCallbacks(bekleyenKategoriYukle);
         }
+        // Zaten yüklü olan kategori tekrar seçildiyse listeyi sıfırlama (kaydırma konumu korunur).
+        if (kategori != null && kategori.equals(aktifKategori)
+                && !FavorilerYoneticisi.FAVORI_KATEGORI_ADI.equals(kategori)
+                && kanalPaneli != null && kanalPaneli.listeAdedi() > 0) {
+            bekleyenKategoriYukle = null;
+            System.out.println("📂 Aynı kategori yeniden seçildi, liste yeniden yüklenmedi: " + kategori);
+            return;
+        }
         bekleyenKategoriYukle = () -> {
             bekleyenKategoriYukle = null;
             kategoriFiltrele(kategori);
