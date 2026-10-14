@@ -50,7 +50,7 @@ public class AramaPaneli {
     private AramaAdapter adapterCanli, adapterFilm, adapterDizi;
     private int offsetCanli = 0, offsetFilm = 0, offsetDizi = 0;
     private boolean yukleniyor = false;
-    private android.widget.ScrollView svSonuclar;
+    private boolean kutuModu = false;   // dokunmatik: her tür kendi kutusunda kayar
     private boolean bittiCanli = false, bittiFilm = false, bittiDizi = false;
     private String mevcutSorgu = "";
     private final Map<String, Channel> diziTekilMap = new LinkedHashMap<>();
@@ -87,7 +87,7 @@ public class AramaPaneli {
         rvFilm.setLayoutManager(new LinearLayoutManager(activity));
         rvDizi.setLayoutManager(new LinearLayoutManager(activity));
 
-        svSonuclarBagla();
+        rvKaydirmaBagla();
 
         etArama.setOnFocusChangeListener((v, hasFocus) -> {
             if (klavye != null && klavye.isVisible()) return;
@@ -189,42 +189,73 @@ public class AramaPaneli {
                         normalPanelYukseklik));
     }
 
-    private void svSonuclarBagla() {
-        svSonuclar = null;
-        View v = grupFilm != null ? (View) grupFilm.getParent() : null;
-        while (v != null && !(v instanceof android.widget.ScrollView)) {
-            android.view.ViewParent p = v.getParent();
-            v = (p instanceof View) ? (View) p : null;
+    // Her sonuç kutusu (Film / Dizi / Canlı TV) kendi içinde kayar.
+    // Kutunun içinde başlayan sürtme sadece o kutuyu kaydırır, dış alana geçmez.
+    private void rvKaydirmaBagla() {
+        RecyclerView[] kutular = {rvFilm, rvDizi, rvCanliTV};
+        for (RecyclerView rv : kutular) {
+            rv.addOnItemTouchListener(new RecyclerView.SimpleOnItemTouchListener() {
+                @Override
+                public boolean onInterceptTouchEvent(RecyclerView r, android.view.MotionEvent e) {
+                    if (kutuModu && e.getActionMasked() == android.view.MotionEvent.ACTION_DOWN
+                            && (r.canScrollVertically(1) || r.canScrollVertically(-1))
+                            && r.getParent() != null) {
+                        r.getParent().requestDisallowInterceptTouchEvent(true);
+                    }
+                    return false;
+                }
+            });
+            rv.addOnScrollListener(new RecyclerView.OnScrollListener() {
+                @Override
+                public void onScrolled(RecyclerView r, int dx, int dy) {
+                    if (dy > 0) dahaYuklemeKontrol();
+                }
+            });
         }
-        if (v == null) {
-            System.out.println("⚠️ [ARAMA-SCROLL] ScrollView bulunamadı, sayfalama devre dışı");
-            return;
-        }
-        svSonuclar = (android.widget.ScrollView) v;
-        android.view.ViewTreeObserver vto = svSonuclar.getViewTreeObserver();
-        vto.addOnScrollChangedListener(this::dahaYuklemeKontrol);
-        vto.addOnGlobalLayoutListener(this::dahaYuklemeKontrol);
     }
 
-    private boolean kategoriAltinaYakin(LinearLayout grup, RecyclerView rv, boolean bitti, Object adapter) {
-        if (bitti || adapter == null || grup == null || rv == null) return false;
-        if (rv.getVisibility() != View.VISIBLE) return false;
-        int gorunurAlt = svSonuclar.getScrollY() + svSonuclar.getHeight();
-        int kalan = grup.getBottom() - gorunurAlt;
-        return kalan <= svSonuclar.getHeight() / 2;
+    // Dokunmatikte kutular sabit yükseklikte, TV'de eskisi gibi (içeriği kadar uzar).
+    private void kutuModuAyarla(boolean dokunmatik) {
+        kutuModu = dokunmatik;
+        float yogunluk = activity.getResources().getDisplayMetrics().density;
+        RecyclerView[] kutular = {rvFilm, rvDizi, rvCanliTV};
+        for (RecyclerView rv : kutular) {
+            android.view.ViewGroup.LayoutParams lp = rv.getLayoutParams();
+            if (lp != null) {
+                lp.height = dokunmatik ? (int) (220 * yogunluk)
+                        : android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
+                rv.setLayoutParams(lp);
+            }
+            rv.setBackgroundColor(dokunmatik ? 0xFF0D2146 : 0x00000000);
+            rv.setVerticalScrollBarEnabled(dokunmatik);
+        }
+        // Son kutunun altında boşluk: kutunun dışında kaydırmak için yer kalsın
+        if (grupFilm != null && grupFilm.getParent() instanceof View) {
+            View icerik = (View) grupFilm.getParent();
+            icerik.setPadding(icerik.getPaddingLeft(), icerik.getPaddingTop(),
+                    icerik.getPaddingRight(), dokunmatik ? (int) (120 * yogunluk) : 0);
+        }
+    }
+
+    private boolean altinaYakin(RecyclerView rv, boolean bitti, Object adapter) {
+        if (bitti || adapter == null || rv == null) return false;
+        if (rv.getVisibility() != View.VISIBLE || rv.getHeight() == 0) return false;
+        RecyclerView.LayoutManager lm = rv.getLayoutManager();
+        if (!(lm instanceof LinearLayoutManager)) return false;
+        int toplam = lm.getItemCount();
+        if (toplam == 0) return false;
+        return ((LinearLayoutManager) lm).findLastVisibleItemPosition() >= toplam - 5;
     }
 
     private void dahaYuklemeKontrol() {
-        if (svSonuclar == null || yukleniyor || mevcutSorgu.isEmpty() || !isVisible()) return;
-        if (svSonuclar.getHeight() == 0 || svSonuclar.getChildCount() == 0
-                || svSonuclar.getChildAt(0).getHeight() == 0) return;
-        if (kategoriAltinaYakin(grupFilm, rvFilm, bittiFilm, adapterFilm)) {
+        if (yukleniyor || mevcutSorgu.isEmpty() || !isVisible()) return;
+        if (altinaYakin(rvFilm, bittiFilm, adapterFilm)) {
             System.out.println("📜 [ARAMA-SCROLL] Film sonraki sayfa | offset=" + offsetFilm);
             dahayukle("MOVIE");
-        } else if (kategoriAltinaYakin(grupDizi, rvDizi, bittiDizi, adapterDizi)) {
+        } else if (altinaYakin(rvDizi, bittiDizi, adapterDizi)) {
             System.out.println("📜 [ARAMA-SCROLL] Dizi sonraki sayfa | offset=" + offsetDizi);
             dahayukle("SERIES");
-        } else if (kategoriAltinaYakin(grupCanli, rvCanliTV, bittiCanli, adapterCanli)) {
+        } else if (altinaYakin(rvCanliTV, bittiCanli, adapterCanli)) {
             System.out.println("📜 [ARAMA-SCROLL] Canlı TV sonraki sayfa | offset=" + offsetCanli);
             dahayukle("LIVE");
         }
@@ -250,6 +281,8 @@ public class AramaPaneli {
         temizleSonuclar();
         sonucFokusModuAktif = false;
         panelYuksekliginiSifirla();
+
+        kutuModuAyarla(!(dpadModuSupplier != null && dpadModuSupplier.isDpadModu()));
 
         boolean remoteKontrolBagliMi = remoteKontrolSupplier != null && remoteKontrolSupplier.isRemoteClientConnected();
 
@@ -377,7 +410,7 @@ public class AramaPaneli {
                 break;
         }
         sonucYokKontrol();
-        if (svSonuclar != null) svSonuclar.post(this::dahaYuklemeKontrol);
+        handler.postDelayed(this::dahaYuklemeKontrol, 120);
     }
 
     private List<Channel> tekilDiziListesiOlustur(List<Channel> kanallar) {
@@ -440,6 +473,7 @@ public class AramaPaneli {
             } else {
                 rv.setVisibility(View.VISIBLE);
                 baslik.setText(t.replace(" ▶", " ▼"));
+                handler.postDelayed(this::dahaYuklemeKontrol, 120);
             }
         });
 
@@ -460,6 +494,7 @@ public class AramaPaneli {
                 } else {
                     rv.setVisibility(View.VISIBLE);
                     baslik.setText(t.replace(" ▶", " ▼"));
+                    handler.postDelayed(this::dahaYuklemeKontrol, 120);
                 }
                 return true;
             }
