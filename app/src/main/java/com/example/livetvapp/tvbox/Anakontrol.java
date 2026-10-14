@@ -100,10 +100,19 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
     private String  aktifDbUrl             = null;
     private boolean stalkerCozumdenGeliyor = false;
     private String sonDiziUrl = null;
+    // Otomatik sonraki bölüm için: şu an oynayan dizi / sezon / bölüm
+    private com.example.livetvapp.Adapter.Dizi   aktifDizi  = null;
+    private com.example.livetvapp.Adapter.Sezon  aktifSezon = null;
+    private com.example.livetvapp.Adapter.Bolum  aktifBolum = null;
+    private long sonOtomatikBolumZamani = 0;
     private long bekleyenBaslangicPozisyonu = 0;
     private String sonFilmUrl = null;
     private boolean ilkAcilisOtomatikOynat = false;
     private boolean kanalFavoridenAcildi = false;
+    // Dizi panelinde şu an "Favoriler" kategorisi seçili mi?
+    private boolean diziFavoriKategoriSecili = false;
+    // Oynayan dizi bölümü Favoriler listesinden mi başlatıldı?
+    private boolean diziFavoridenAcildi = false;
     public boolean isKanalFavoridenAcildi() { return kanalFavoridenAcildi; }
     private boolean kullaniciDurdurdu = false;
     public void setKullaniciDurdurdu(boolean deger) { this.kullaniciDurdurdu = deger; }
@@ -274,7 +283,9 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
             if (ayarlarPaneli != null && ayarlarPaneli.isVisible()) return;
             if (Icerikpaneli.TIP_DIZI.equals(aktifIcerikTipi)) {
                 if (diziPaneli != null) {
-                    if (!FavorilerYoneticisi.FAVORI_KATEGORI_ADI.equals(kategori)) {
+                    boolean favoriSecildi = FavorilerYoneticisi.FAVORI_KATEGORI_ADI.equals(kategori);
+                    diziFavoriKategoriSecili = favoriSecildi;
+                    if (!favoriSecildi) {
                         aktifKategori = kategori;
                     }
                     diziKategoriDebounceIleYukle(kategori);
@@ -311,7 +322,13 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
         kanalPaneli.setKanalSecimDinleyici(kanal -> {
             if (kanal == null) return;
             if (Icerikpaneli.TIP_FILM.equals(kanal.getContentType())) {
-                if (dpad != null) dpad.kanalPaneliKapat();
+                if (dpad != null) {
+                    dpad.kanalPaneliKapat();
+                    // Film başlayınca kategori ve içerik panelleri de kapansın
+                    if (kategoriPaneli != null) kategoriPaneli.gizle();
+                    if (icerikPaneli   != null) icerikPaneli.gizle();
+                    dpad.panelDurumuSifirla();
+                }
                 filmOynatPozisyonKontrollu(kanal);
             } else {
                 oynatKanal(kanal);
@@ -378,8 +395,12 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
             logTipDegisimi("BolumSecimDinleyici", aktifIcerikTipi, Icerikpaneli.TIP_DIZI);
             aktifIcerikTipi = Icerikpaneli.TIP_DIZI;
             aktifDiziAdi = dizi.getAd() != null ? dizi.getAd() : "";
+            diziFavoridenAcildi = diziFavoriKategoriSecili;
             oynayanTipiAyarla(Icerikpaneli.TIP_DIZI, aktifKategori);
             kanalFavoridenAcildi = FavorilerYoneticisi.FAVORI_KATEGORI_ADI.equals(aktifKategori);
+            aktifDizi  = dizi;
+            aktifSezon = sezon;
+            aktifBolum = bolum;
             bolumOynatPozisyonKontrollu(dizi, sezon, bolum, barMetni);
         });
         ayarlarPaneli = new AyarlarPaneli(activity);
@@ -1096,6 +1117,18 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
                                                     List<Channel> g = gizliKanallariFiltreele(channels);
                                                     System.out.println("[SIRA-LOG] ANA liste sayfa yüklendi [" + aktifIcerikTipi + "/" + aktifKategori
                                                             + "] offset=" + offset + " adet=" + g.size() + " → " + siraLogu(g));
+                                                    boolean filmVeyaDizi = Icerikpaneli.TIP_FILM.equals(aktifIcerikTipi)
+                                                            || Icerikpaneli.TIP_DIZI.equals(aktifIcerikTipi);
+                                                    if (sayfaBitti && filmVeyaDizi) {
+                                                        if (channels.isEmpty()) {
+                                                            // Veritabanında kalmadı: Stalker'dan sıradaki sayfayı iste
+                                                            stalkerSonrakiSayfaGetir(aktifIcerikTipi, aktifKategori, sonuc);
+                                                        } else {
+                                                            // Sayfa kısa geldi ama Stalker'da devamı olabilir
+                                                            mainHandler.post(() -> sonuc.sayfaGeldi(g, false));
+                                                        }
+                                                        return;
+                                                    }
                                                     mainHandler.post(() -> {
                                                         sonuc.sayfaGeldi(g, sayfaBitti);
                                                     });
@@ -1905,6 +1938,8 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
             streamTimeoutBaslat(kanal.getUrl());
             mediaPlayer.stop();
             if (currentMedia != null) { currentMedia.release(); currentMedia = null; }
+            System.out.println("▶️ [FILM-DEBUG] oynatKanal | tip=" + kanal.getContentType()
+                    + " | url=" + kanal.getUrl());
             currentMedia = new Media(libVLC, Uri.parse(kanal.getUrl()));
             mediaPlayer.setMedia(currentMedia);
             mediaPlayer.play();
@@ -2007,6 +2042,8 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
                             portal.getPortalUrl(), token, portal.getMacAddress(), cmd);
                 }
 
+                System.out.println("🎬 [FILM-DEBUG] link çözüldü | tip=" + kanal.getContentType()
+                        + " | placeholder=" + placeholder + " | portal yanıtı=" + gercekUrl);
                 gercekUrl = StalkerApiClient.extractUrl(gercekUrl);
 
                 if (gercekUrl == null || gercekUrl.isEmpty()
@@ -2212,6 +2249,7 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
     // Dizi panelini verilen kategoriyle kurar ve (varsa) diziAdi üzerine focus verir.
     // diziAdi null olabilir: bu durumda sadece panel açılır, focus verilmez.
     private void diziPaneliniKategoriyleAc(String diziAdi, String kategori) {
+        diziFavoriKategoriSecili = FavorilerYoneticisi.FAVORI_KATEGORI_ADI.equals(kategori);
         aktifIcerikTipi = Icerikpaneli.TIP_DIZI;
         icerikPaneli.setAktifTip(Icerikpaneli.TIP_DIZI);
         if (dpad != null) dpad.setAktifIcerikTipi(Icerikpaneli.TIP_DIZI);
@@ -2255,7 +2293,7 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
         if (Icerikpaneli.TIP_DIZI.equals(oynayanIcerikTipi)
                 && aktifDiziAdi != null && !aktifDiziAdi.isEmpty()) {
             if (oynayanKategori != null) aktifKategori = oynayanKategori;
-            diziPaneliniKategoriyleAc(aktifDiziAdi, oynayanKategori);
+            diziPaneliniKategoriyleAc(aktifDiziAdi, oynayanDiziKategorisi());
             return;
         }
         String aramaUrl = (aktifDbUrl != null && !aktifDbUrl.isEmpty()) ? aktifDbUrl : aktifStreamUrl;
@@ -2405,7 +2443,7 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
         if (Icerikpaneli.TIP_DIZI.equals(tip)) {
             if (oynayanKategori != null) {
                 aktifKategori = oynayanKategori;
-                diziPaneliniKategoriyleAc(diziAdi, oynayanKategori);
+                diziPaneliniKategoriyleAc(diziAdi, oynayanDiziKategorisi());
             } else if (Icerikpaneli.TIP_DIZI.equals(aktifIcerikTipi) && dpad != null) {
                 dpad.diziPaneliDirektAc();
             } else {
@@ -2436,6 +2474,16 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
         oynayanKategori   = kategori;
         if (dpad != null) dpad.setOynayanIcerikTipi(t);
         if (oynaticiBar != null) oynaticiBar.setAktifIcerikTipi(t);
+    }
+
+    // Oynayan dizi bölümü Favoriler listesinden başlatıldıysa (ve favori listesi boş değilse)
+    // dizi paneli yine Favoriler ile açılır; aksi halde oynayan dizinin kategorisiyle.
+    private String oynayanDiziKategorisi() {
+        if (diziFavoridenAcildi && favorilerYoneticisi != null
+                && !favorilerYoneticisi.bos(Icerikpaneli.TIP_DIZI)) {
+            return FavorilerYoneticisi.FAVORI_KATEGORI_ADI;
+        }
+        return oynayanKategori;
     }
 
     public String getOynayanIcerikTipi() {
@@ -2722,8 +2770,115 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
         }).start();
     }
 
+    // Stalker filmlerinde portal "cmd" değerini düz URL olarak vermiyor (base64 metin).
+    // Böyle bir değer varsa önce portaldan gerçek adresi alıp sonra oynatıyoruz.
+    private boolean stalkerFilmCozumGerekliMi(Channel kanal) {
+        if (kanal == null) return false;
+        String url = kanal.getUrl();
+        String src = kanal.getSourceName();
+        return url != null && !url.isEmpty() && !url.contains("://")
+                && src != null && src.startsWith("Stalker:");
+    }
+
+    private void stalkerFilmLinkCozVeOynat(Channel kanal, long baslangicPozisyonMs) {
+        final String cmd = kanal.getUrl();
+        final String sourceName = kanal.getSourceName();
+        yuklemeOverlayGoster(kanal.getName());
+
+        new Thread(() -> {
+            try {
+                AppDatabase db = AppDatabase.getInstance(activity);
+                List<StalkerPortal> portals = db.stalkerPortalDao().getActivePortals();
+
+                StalkerPortal portal = null;
+                for (StalkerPortal p : portals) {
+                    if (sourceName.equals("Stalker:" + p.getName())
+                            || sourceName.equals(p.getName())) {
+                        portal = p;
+                        break;
+                    }
+                }
+                if (portal == null) {
+                    mainHandler.post(() -> {
+                        yuklemeOverlayGizle();
+                        streamHataBildirimiGoster(kanal.getName(), "Stalker portal bulunamadı.");
+                    });
+                    return;
+                }
+
+                String token = StalkerTokenCache.getInstance().getToken(portal.getId());
+                if (token == null || token.isEmpty()) {
+                    org.json.JSONObject hs = StalkerApiClient.handshakeSync(
+                            portal.getPortalUrl(), portal.getMacAddress());
+                    org.json.JSONObject js = hs.optJSONObject("js");
+                    if (js != null) token = js.optString("token", "");
+                    if (token != null && !token.isEmpty()) {
+                        StalkerTokenCache.getInstance().put(portal.getId(), token,
+                                System.currentTimeMillis() + 3_600_000L);
+                    }
+                }
+                if (token == null || token.isEmpty()) {
+                    mainHandler.post(() -> {
+                        yuklemeOverlayGizle();
+                        streamHataBildirimiGoster(kanal.getName(), "Stalker token alınamadı.");
+                    });
+                    return;
+                }
+
+                String gercekUrl = StalkerApiClient.createVodLinkSync(
+                        portal.getPortalUrl(), token, portal.getMacAddress(), cmd);
+                gercekUrl = StalkerApiClient.extractUrl(gercekUrl);
+                System.out.println("🎬 [FILM-DEBUG] film link çözüldü | portal yanıtı=" + gercekUrl);
+
+                if (gercekUrl == null || gercekUrl.isEmpty() || !gercekUrl.contains("://")) {
+                    mainHandler.post(() -> {
+                        yuklemeOverlayGizle();
+                        streamHataBildirimiGoster(kanal.getName(), "Film adresi çözülemedi.");
+                    });
+                    return;
+                }
+
+                Channel cozulmus = new Channel(kanal.getName(), gercekUrl,
+                        kanal.getCategory(), kanal.getLogo(), kanal.getSourceName());
+                cozulmus.setContentType(kanal.getContentType());
+
+                mainHandler.post(() -> {
+                    yuklemeOverlayGizle();
+                    oynatKanalDirekt(cozulmus, baslangicPozisyonMs);
+                });
+            } catch (Exception e) {
+                System.out.println("❌ [STALKER] Film link çözme hatası: " + e.getMessage());
+                mainHandler.post(() -> {
+                    yuklemeOverlayGizle();
+                    streamHataBildirimiGoster(kanal.getName(),
+                            "Stalker bağlantı hatası: " + e.getMessage());
+                });
+            }
+        }).start();
+    }
+
+    private com.example.livetvapp.stalker.StalkerPageFetcher stalkerPageFetcher;
+
+    // Stalker film/dizi kategorisinde sıradaki sayfayı (14'lük) portaldan alır.
+    private void stalkerSonrakiSayfaGetir(String tip, String kategori,
+                                          normalkanallistesipaneli.DbSayfaSonucu sonuc) {
+        if (stalkerPageFetcher == null) {
+            stalkerPageFetcher = new com.example.livetvapp.stalker.StalkerPageFetcher(activity);
+        }
+        stalkerPageFetcher.fetchNextPageIfAvailable(tip, kategori, (yeni, sonSayfa) -> {
+            List<Channel> g = gizliKanallariFiltreele(yeni);
+            System.out.println("📥 [STALKER-SAYFA] " + tip + "/" + kategori
+                    + " yeni=" + g.size() + " sonSayfa=" + sonSayfa);
+            sonuc.sayfaGeldi(g, g.isEmpty() || sonSayfa);
+        });
+    }
+
     private void oynatKanalDirekt(Channel kanal, long baslangicPozisyonMs) {
         if (kanal == null || mediaPlayer == null || libVLC == null) return;
+        if (stalkerFilmCozumGerekliMi(kanal)) {
+            stalkerFilmLinkCozVeOynat(kanal, baslangicPozisyonMs);
+            return;
+        }
         oynayanTipiAyarla(kanal.getContentType(), kanal.getCategory());
         aktifKanalAdi = kanal.getName() != null ? kanal.getName() : "";
         try {
@@ -2734,6 +2889,9 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
             streamTimeoutBaslat(kanal.getUrl());
             mediaPlayer.stop();
             if (currentMedia != null) { currentMedia.release(); currentMedia = null; }
+            System.out.println("🎬 [FILM-DEBUG] oynatKanalDirekt (Stalker çözümü YOK) | tip="
+                    + kanal.getContentType() + " | kaynak=" + kanal.getSourceName()
+                    + " | url=" + kanal.getUrl());
             currentMedia = new Media(libVLC, Uri.parse(kanal.getUrl()));
             mediaPlayer.setMedia(currentMedia);
             aktifStreamUrl = kanal.getUrl();
@@ -2829,12 +2987,66 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
                     mainHandler.post(() -> {
                         streamTimeoutIptal();
                         yuklemeOverlayGizle();
+                        if (sonrakiBolumuOynat()) return;
                         if (streamMonitor != null) streamMonitor.onStreamError();
                     });
                     break;
             }
         };
         if (mediaPlayer != null) mediaPlayer.setEventListener(vlcEventListener);
+    }
+
+    // Dizi bölümü bitince aynı sezonda sonraki bölümü, yoksa sonraki sezonun ilk bölümünü açar.
+    // Oynatacak bölüm yoksa false döner.
+    private boolean sonrakiBolumuOynat() {
+        if (aktifDizi == null || aktifSezon == null || aktifBolum == null) return false;
+        if (!Icerikpaneli.TIP_DIZI.equals(oynayanIcerikTipi)) return false;
+        if (aktifStreamUrl == null || !aktifStreamUrl.equals(aktifBolum.getUrl())) return false;
+        long simdi = System.currentTimeMillis();
+        if (simdi - sonOtomatikBolumZamani < 3000) return true;
+
+        com.example.livetvapp.Adapter.Sezon  hedefSezon = aktifSezon;
+        com.example.livetvapp.Adapter.Bolum  hedef = null;
+
+        // Aynı sezonda, numarası bir sonraki olan bölüm
+        for (com.example.livetvapp.Adapter.Bolum b : aktifSezon.getBolumler()) {
+            if (b.getBolumNo() > aktifBolum.getBolumNo()
+                    && (hedef == null || b.getBolumNo() < hedef.getBolumNo())) {
+                hedef = b;
+            }
+        }
+        // Yoksa sonraki sezonun ilk bölümü
+        if (hedef == null) {
+            com.example.livetvapp.Adapter.Sezon sonrakiSezon = null;
+            for (com.example.livetvapp.Adapter.Sezon z : aktifDizi.getSezonlar()) {
+                if (z.getSezonNo() > aktifSezon.getSezonNo() && !z.getBolumler().isEmpty()
+                        && (sonrakiSezon == null || z.getSezonNo() < sonrakiSezon.getSezonNo())) {
+                    sonrakiSezon = z;
+                }
+            }
+            if (sonrakiSezon != null) {
+                hedefSezon = sonrakiSezon;
+                for (com.example.livetvapp.Adapter.Bolum b : sonrakiSezon.getBolumler()) {
+                    if (hedef == null || b.getBolumNo() < hedef.getBolumNo()) hedef = b;
+                }
+            }
+        }
+        if (hedef == null || hedef.getUrl() == null || hedef.getUrl().isEmpty()) return false;
+
+        sonOtomatikBolumZamani = simdi;
+        mevcutBolumPozisyonuKaydet();
+        String barMetni = aktifDizi.getAd()
+                + " \u00b7 S" + String.format("%02d", hedefSezon.getSezonNo())
+                + " E" + String.format("%02d", hedef.getBolumNo());
+        System.out.println("⏭️ Otomatik sonraki bölüm: " + barMetni);
+        aktifSezon = hedefSezon;
+        aktifBolum = hedef;
+        sonDiziUrl = hedef.getUrl();
+        aktifKanalAdi = barMetni;
+        if (oynaticiBar != null) oynaticiBar.setIcerikAdi(barMetni);
+        Toast.makeText(activity, "Sonraki bölüm: " + barMetni, Toast.LENGTH_SHORT).show();
+        oynatUrl(hedef.getUrl(), 0);
+        return true;
     }
 
     private void streamTimeoutBaslat(String url) {

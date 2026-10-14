@@ -21,9 +21,9 @@ public class StalkerPageFetcher {
 
     private static final String TAG = "StalkerPageFetcher";
 
-    
+
     public interface PageFetchCallback {
-        
+
         void onResult(List<Channel> channels, boolean isLastPage);
     }
 
@@ -31,14 +31,14 @@ public class StalkerPageFetcher {
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final ExecutorService executor = Executors.newFixedThreadPool(2);
 
-    
+
     private final Set<String> inFlight = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
     public StalkerPageFetcher(Context context) {
         this.context = context.getApplicationContext();
     }
 
-    
+
     public void fetchNextPageIfAvailable(String contentType,
                                          String categoryName,
                                          PageFetchCallback callback) {
@@ -49,7 +49,7 @@ public class StalkerPageFetcher {
 
         String lockKey = contentType + "|" + categoryName;
         if (!inFlight.add(lockKey)) {
-            
+
             Log.d(TAG, "Zaten yükleniyor: " + lockKey);
             mainHandler.post(() -> callback.onResult(new ArrayList<>(), false));
             return;
@@ -72,7 +72,7 @@ public class StalkerPageFetcher {
         AppDatabase db = AppDatabase.getInstance(context);
         StalkerCategoryProgressDao progressDao = db.stalkerCategoryProgressDao();
 
-        
+
         List<StalkerCategoryProgress> progressList = progressDao.getByCategory(categoryName);
         if (progressList == null || progressList.isEmpty()) {
             Log.d(TAG, "İlerleme kaydı yok: " + categoryName);
@@ -91,13 +91,13 @@ public class StalkerPageFetcher {
             if (lastFetched >= totalPages - 1) {
                 Log.d(TAG, "Tüm sayfalar alınmış: " + progress.getM3uName()
                         + "/" + categoryName + " (" + lastFetched + "/" + (totalPages - 1) + ")");
-                continue; 
+                continue;
             }
 
             anyMore = true;
             int nextPage = lastFetched + 1;
 
-            
+
             String portalName = progress.getM3uName().startsWith("Stalker:")
                     ? progress.getM3uName().substring("Stalker:".length())
                     : progress.getM3uName();
@@ -112,7 +112,7 @@ public class StalkerPageFetcher {
                 continue;
             }
 
-            
+
             String token = StalkerTokenCache.getInstance().getToken(portal.getId());
             if (token == null || token.isEmpty()) {
                 Log.d(TAG, "Token yok, handshake yapılıyor: " + portalName);
@@ -135,7 +135,7 @@ public class StalkerPageFetcher {
                 continue;
             }
 
-            
+
             String catId = progress.getCategoryId();
             if (catId == null || catId.isEmpty()) catId = "*";
 
@@ -164,15 +164,22 @@ public class StalkerPageFetcher {
             if (data == null || data.length() == 0) {
                 Log.d(TAG, "Sayfa boş döndü: " + portalName + "/" + categoryName
                         + " sayfa=" + nextPage);
-                
+
                 progress.setLastFetchedPage(progress.getTotalPages() - 1);
                 progress.setLastSyncTime(System.currentTimeMillis());
                 progressDao.update(progress);
                 continue;
             }
 
-            
+
             String sourceName = progress.getM3uName();
+            // Yeni sayfaların sırası ilk sayfanın devamı olsun (liste position'a göre sıralanıyor)
+            int basePos = 0;
+            try {
+                List<Channel> ilk = db.channelDao().getChannelsByTypeAndCategoryPaged(
+                        sourceName, contentType, categoryName, 1, 0);
+                if (ilk != null && !ilk.isEmpty()) basePos = ilk.get(0).getPosition();
+            } catch (Exception ignored) {}
             int insertedCount = 0;
             for (int i = 0; i < data.length(); i++) {
                 JSONObject item = data.optJSONObject(i);
@@ -185,14 +192,18 @@ public class StalkerPageFetcher {
                 String streamUrl = StalkerApiClient.extractUrl(cmd);
                 if (streamUrl.isEmpty()) continue;
 
+                if (i == 0) {
+                    Log.d(TAG, "[FILM-DEBUG] sayfa=" + nextPage + " kategori=" + categoryName
+                            + " ilk öğe cmd=" + cmd + " | id=" + id + " | kaydedilen url=" + streamUrl);
+                }
                 Channel ch = new Channel(name, streamUrl, categoryName, logo, sourceName);
                 ch.setContentType(contentType);
-                ch.setPosition(i);
+                ch.setPosition(basePos + nextPage * maxPageItems + i);
                 allNew.add(ch);
                 insertedCount++;
             }
 
-            
+
             if (insertedCount > 0) {
                 try {
                     db.channelDao().insertAll(allNew.subList(allNew.size() - insertedCount, allNew.size()));
@@ -201,7 +212,7 @@ public class StalkerPageFetcher {
                 }
             }
 
-            
+
             progress.setLastFetchedPage(nextPage);
             if (maxPageItems > 0 && totalItems > 0) {
                 int recalcPages = (int) Math.ceil((double) totalItems / maxPageItems);
@@ -223,7 +234,7 @@ public class StalkerPageFetcher {
         mainHandler.post(() -> callback.onResult(result, lastPage));
     }
 
-    
+
     public void shutdown() {
         executor.shutdownNow();
     }

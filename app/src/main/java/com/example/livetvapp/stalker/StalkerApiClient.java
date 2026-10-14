@@ -107,12 +107,15 @@ public class StalkerApiClient {
                 + "&token=" + URLEncoder.encode(token, "UTF-8")
                 + "&cmd=" + URLEncoder.encode(cmd, "UTF-8")
                 + "&JsHttpRequest=1-xml";
+        Log.d(TAG, "[FILM-DEBUG] create_link(vod) istek cmd=" + cmd);
         JSONObject resp = doGet(urlStr, mac, token);
+        Log.d(TAG, "[FILM-DEBUG] create_link(vod) tam yanıt=" + resp);
         JSONObject js = resp.optJSONObject("js");
         if (js != null) {
             String streamCmd = js.optString("cmd", "");
             if (!streamCmd.isEmpty()) return extractUrl(streamCmd);
         }
+        Log.w(TAG, "[FILM-DEBUG] create_link(vod) js.cmd boş, istek cmd'si geri veriliyor: " + cmd);
         return extractUrl(cmd);
     }
 

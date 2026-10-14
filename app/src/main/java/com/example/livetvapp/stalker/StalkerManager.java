@@ -78,6 +78,11 @@ public class StalkerManager {
 
             allChannels.addAll(fetchLiveChannels(portal, finalToken, sourceName));
 
+            // Sadece film (VOD) yüklenir; dizi bilerek yüklenmez.
+            List<Channel> filmler = fetchFirstPageOnly(portal, finalToken, sourceName, "vod", "MOVIE");
+            Log.d(TAG, "[FILM-DEBUG] MOVIE içerik sayısı: " + filmler.size());
+            allChannels.addAll(filmler);
+
 
 
 
@@ -236,6 +241,11 @@ public class StalkerManager {
                     }
                     if (streamUrl.isEmpty()) continue;
 
+                    if (i == 0) {
+                        String itemJson = item.toString();
+                        Log.d(TAG, "[FILM-DEBUG] kategori=" + catName + " ilk öğe: " + itemJson.substring(0, Math.min(itemJson.length(), 600)));
+                        Log.d(TAG, "[FILM-DEBUG] cmd=" + cmd + " | id=" + id + " | kaydedilen url=" + streamUrl);
+                    }
                     Channel channel = new Channel(name, streamUrl, catName, logo, sourceName);
                     channel.setContentType(contentType);
                     channel.setPosition(basePosition + i);
