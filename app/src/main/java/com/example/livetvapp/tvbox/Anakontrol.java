@@ -2853,6 +2853,9 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
                 mainHandler.post(() -> {
                     yuklemeOverlayGizle();
                     oynatKanalDirekt(cozulmus, baslangicPozisyonMs);
+                    // Stalker filmi veritabanında çözülmemiş komut metniyle (cmd) kayıtlıdır; oynayan link
+                    // (…play_token=…) veritabanında yoktur. Liste açılırken oynayan film bununla bulunur.
+                    aktifDbUrl = cmd;
                 });
             } catch (Exception e) {
                 System.out.println("❌ [STALKER] Film link çözme hatası: " + e.getMessage());
@@ -2888,6 +2891,7 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
             return;
         }
         oynayanTipiAyarla(kanal.getContentType(), kanal.getCategory());
+        aktifDbUrl = null; // önceki Stalker filminden kalan değer bu içeriğin aramasını bozmasın
         aktifKanalAdi = kanal.getName() != null ? kanal.getName() : "";
         try {
             if (metadataPanel != null) metadataPanel.gizle();
