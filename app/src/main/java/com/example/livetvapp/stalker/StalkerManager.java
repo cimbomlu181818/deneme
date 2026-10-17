@@ -56,11 +56,13 @@ public class StalkerManager {
                 JSONObject handshake = StalkerApiClient.handshakeSync(portal.getPortalUrl(), portal.getMacAddress());
                 JSONObject js = handshake.optJSONObject("js");
                 if (js == null) {
+                    com.example.livetvapp.HataGunlugu.stalkerTokenHatasi("Handshake: 'js' alanı yok");
                     mainHandler.post(() -> listener.onError("Handshake: 'js' alanı yok"));
                     return;
                 }
                 token = js.optString("token", "");
                 if (token.isEmpty()) {
+                    com.example.livetvapp.HataGunlugu.stalkerTokenHatasi("Handshake: token boş");
                     mainHandler.post(() -> listener.onError("Handshake: token boş"));
                     return;
                 }
@@ -117,6 +119,7 @@ public class StalkerManager {
 
         } catch (Exception e) {
             Log.e(TAG, "syncPortalInternal hata: " + e.getMessage(), e);
+            com.example.livetvapp.HataGunlugu.sunucuHatasi("STK", portal.getPortalUrl(), e);
             mainHandler.post(() -> listener.onError("Senkronizasyon hatası: " + e.getMessage()));
         }
     }

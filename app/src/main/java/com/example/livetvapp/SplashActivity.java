@@ -33,7 +33,6 @@ public class SplashActivity extends AppCompatActivity {
 
     private final String[] statusMessages = {
             "Kimlik doğrulanıyor...",
-            "Firebase bağlantısı...",
             "Erişim kontrol ediliyor...",
             "Lisans doğrulanıyor..."
     };

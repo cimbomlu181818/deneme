@@ -25,6 +25,7 @@ public class FileTransferServer {
     private Context context;
     private ExecutorService executorService;
     private ServerSocket serverSocket;
+    private static FileTransferServer aktifSunucu;
     private boolean isRunning = false;
     private FileTransferCallback callback;
 
@@ -50,6 +51,10 @@ public class FileTransferServer {
             Log.d(TAG, "⚠️ Server zaten çalışıyor");
             return;
         }
+        if (aktifSunucu != null && aktifSunucu != this) {
+            aktifSunucu.stop();
+        }
+        aktifSunucu = this;
         isRunning = true;
         executorService.execute(this::listenForConnections);
         Log.d(TAG, "✅ FileTransferServer başlatıldı, port: " + TRANSFER_PORT);
@@ -65,12 +70,32 @@ public class FileTransferServer {
         } catch (IOException e) {
             Log.e(TAG, "❌ Server socket kapatma hatası: " + e.getMessage());
         }
+        if (aktifSunucu == this) aktifSunucu = null;
         Log.d(TAG, "✅ FileTransferServer durduruldu");
     }
 
     private void listenForConnections() {
         try {
-            serverSocket = new ServerSocket(TRANSFER_PORT);
+            ServerSocket ss = null;
+            IOException sonHata = null;
+            for (int deneme = 0; deneme < 8 && isRunning; deneme++) {
+                try {
+                    ss = new ServerSocket();
+                    ss.setReuseAddress(true);
+                    ss.bind(new java.net.InetSocketAddress(TRANSFER_PORT));
+                    sonHata = null;
+                    break;
+                } catch (IOException e) {
+                    sonHata = e;
+                    try { ss.close(); } catch (Exception ignored) {}
+                    ss = null;
+                    try { Thread.sleep(700); } catch (InterruptedException ie) { return; }
+                }
+            }
+            if (sonHata != null) throw sonHata;
+            if (ss == null) return;
+            serverSocket = ss;
+            if (!isRunning) { ss.close(); return; }
             Log.d(TAG, "📡 Dinleniyor: " + TRANSFER_PORT);
 
             while (isRunning) {
@@ -87,6 +112,7 @@ public class FileTransferServer {
             }
         } catch (IOException e) {
             Log.e(TAG, "❌ Server başlatma hatası: " + e.getMessage(), e);
+            com.example.livetvapp.HataGunlugu.sunucuSoketHatasi("AKTARIM", e);
         }
     }
 
@@ -251,6 +277,7 @@ public class FileTransferServer {
 
         } catch (IOException e) {
             Log.e(TAG, "❌ Dosya alma hatası: " + e.getMessage(), e);
+            com.example.livetvapp.HataGunlugu.aktarimHatasi(e);
             if (callback != null) callback.onTransferError(e.getMessage());
             try { socket.close(); } catch (IOException ignored) {}
         }

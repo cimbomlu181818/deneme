@@ -112,6 +112,7 @@ public class RemoteControlServer {
                 }
             } catch (Exception e) {
                 Log.e(TAG, "❌ Discovery listener başlatma hatası: " + e.getMessage(), e);
+                com.example.livetvapp.HataGunlugu.sunucuSoketHatasi("UZAK", e);
             }
         });
     }

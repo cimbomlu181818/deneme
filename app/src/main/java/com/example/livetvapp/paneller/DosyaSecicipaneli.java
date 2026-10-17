@@ -536,48 +536,6 @@ public class DosyaSecicipaneli extends AppCompatActivity {
         }
 
 
-        File storage = new File("/storage");
-        if (storage.exists() && storage.isDirectory()) {
-            File[] storageFiles = storage.listFiles();
-            if (storageFiles != null) {
-                for (File f : storageFiles) {
-                    if (f.isDirectory() && f.canRead()) {
-                        if (dahili != null && f.getAbsolutePath().equals(dahili.getAbsolutePath())) continue;
-                        if (f.getAbsolutePath().equals("/storage/emulated")) continue;
-                        boolean zatenVar = false;
-                        for (DosyaOge o : depolamalar) {
-                            if (o.dosya.getAbsolutePath().equals(f.getAbsolutePath())) { zatenVar = true; break; }
-                        }
-                        if (!zatenVar) {
-                            depolamalar.add(new DosyaOge(f));
-                            Log.d("DosyaSecici", "/storage altı: " + f.getAbsolutePath());
-                        }
-                    }
-                }
-            }
-        }
-
-
-        File mnt = new File("/mnt");
-        if (mnt.exists() && mnt.isDirectory()) {
-            File[] mntFiles = mnt.listFiles();
-            if (mntFiles != null) {
-                for (File f : mntFiles) {
-                    if (f.isDirectory() && f.canRead()) {
-                        boolean zatenVar = false;
-                        for (DosyaOge o : depolamalar) {
-                            if (o.dosya.getAbsolutePath().equals(f.getAbsolutePath())) { zatenVar = true; break; }
-                        }
-                        if (!zatenVar) {
-                            depolamalar.add(new DosyaOge(f));
-                            Log.d("DosyaSecici", "/mnt altı: " + f.getAbsolutePath());
-                        }
-                    }
-                }
-            }
-        }
-
-
         if (depolamalar.isEmpty()) {
             Toast.makeText(this, "Depolama alanı bulunamadı!", Toast.LENGTH_LONG).show();
             finish();

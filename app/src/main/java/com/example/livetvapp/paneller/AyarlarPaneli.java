@@ -289,19 +289,20 @@ public class AyarlarPaneli {
 
         ayarlarContainer.addView(ayiriciOlustur());
 
-        Button btn3 = anaKategoriButonOlustur("4 - Uygulamayı Kapat");
-        btn3.setOnClickListener(v -> uygulamayiKapat());
-        ayarlarContainer.addView(btn3);
+        boolean telefonMu = DeviceDetector.isPhone(activity);
 
-
-        if (DeviceDetector.isPhone(activity)) {
-            Button btnRemote = anaKategoriButonOlustur("5 - Kumanda");
+        if (telefonMu) {
+            Button btnRemote = anaKategoriButonOlustur("4 - Kumanda");
             btnRemote.setOnClickListener(v -> {
                 Intent intent = new Intent(activity, com.example.livetvapp.remotecontrol.RemoteDeviceScanActivity.class);
                 activity.startActivity(intent);
             });
             ayarlarContainer.addView(btnRemote);
         }
+
+        Button btn3 = anaKategoriButonOlustur((telefonMu ? "5" : "4") + " - Uygulamayı Kapat");
+        btn3.setOnClickListener(v -> uygulamayiKapat());
+        ayarlarContainer.addView(btn3);
 
         SharedPreferences girisTercihleriAyarlar = activity.getSharedPreferences("azsh_giris", Context.MODE_PRIVATE);
         String emailBilgisi = girisTercihleriAyarlar.getString("email", "");
@@ -317,8 +318,12 @@ public class AyarlarPaneli {
         btn4.setOnClickListener(v -> cikisYapButonuTiklandi());
         ayarlarContainer.addView(btn4);
 
+        Button btnHatalar = anaKategoriButonOlustur("7 - Hata Kayıtları");
+        btnHatalar.setOnClickListener(v -> com.example.livetvapp.HataGunlugu.sonHatalariGoster(activity));
+        ayarlarContainer.addView(btnHatalar);
+
         TextView footer = new TextView(activity);
-        footer.setText("AZSH YAZILIM\nMade in Turkey");
+        footer.setText("AZSH YAZILIM\nMade in Türkiye");
         footer.setTextColor(0xAAFFFFFF);
         footer.setTextSize(14);
         footer.setTypeface(null, Typeface.BOLD);
@@ -413,7 +418,7 @@ public class AyarlarPaneli {
         btnGeri.postDelayed(() -> btnGeri.requestFocus(), 100);
 
         TextView footer = new TextView(activity);
-        footer.setText("AZSH YAZILIM\nMade in Turkey");
+        footer.setText("AZSH YAZILIM\nMade in Türkiye");
         footer.setTextColor(0xAAFFFFFF);
         footer.setTextSize(14);
         footer.setTypeface(null, Typeface.BOLD);
@@ -938,38 +943,43 @@ public class AyarlarPaneli {
 
         ayarlarContainer.addView(ayiriciOlustur());
 
-        boolean initial = activity.getSharedPreferences("AppSettings", 0)
-                .getBoolean("show_shortcut_box", true);
+        boolean telefonMu = DeviceDetector.isPhone(activity);
 
-        Button btnKisayol = aktifAltOgeOlustur(
-                initial ? "b - Yardım Kutusunu Gizle" : "b - Yardım Kutusunu Göster"
-        );
-        btnKisayol.setOnClickListener(v -> {
-            boolean current = activity.getSharedPreferences("AppSettings", 0)
+        // Yardım kutusu telefonda yok; sadece diğer cihazlarda gösterilir.
+        if (!telefonMu) {
+            boolean initial = activity.getSharedPreferences("AppSettings", 0)
                     .getBoolean("show_shortcut_box", true);
-            boolean newState = !current;
-            activity.getSharedPreferences("AppSettings", 0)
-                    .edit()
-                    .putBoolean("show_shortcut_box", newState)
-                    .apply();
-            btnKisayol.setText(
-                    newState ? "b - Yardım Kutusunu Gizle" : "b - Yardım Kutusunu Göster"
-            );
-            if (shortcutBoxListener != null) {
-                shortcutBoxListener.onVisibilityChanged(newState);
-            }
-        });
-        ayarlarContainer.addView(btnKisayol);
 
-        Button btnDisaAktar = aktifAltOgeOlustur("c - Ayarları Dışa Aktar");
+            Button btnKisayol = aktifAltOgeOlustur(
+                    initial ? "b - Yardım Kutusunu Gizle" : "b - Yardım Kutusunu Göster"
+            );
+            btnKisayol.setOnClickListener(v -> {
+                boolean current = activity.getSharedPreferences("AppSettings", 0)
+                        .getBoolean("show_shortcut_box", true);
+                boolean newState = !current;
+                activity.getSharedPreferences("AppSettings", 0)
+                        .edit()
+                        .putBoolean("show_shortcut_box", newState)
+                        .apply();
+                btnKisayol.setText(
+                        newState ? "b - Yardım Kutusunu Gizle" : "b - Yardım Kutusunu Göster"
+                );
+                if (shortcutBoxListener != null) {
+                    shortcutBoxListener.onVisibilityChanged(newState);
+                }
+            });
+            ayarlarContainer.addView(btnKisayol);
+        }
+
+        Button btnDisaAktar = aktifAltOgeOlustur((telefonMu ? "b" : "c") + " - Ayarları Dışa Aktar");
         btnDisaAktar.setOnClickListener(v -> disaAktarIzinKontrol());
         ayarlarContainer.addView(btnDisaAktar);
 
-        Button btnIceAktar = aktifAltOgeOlustur("d - Ayarları İçe Aktar");
+        Button btnIceAktar = aktifAltOgeOlustur((telefonMu ? "c" : "d") + " - Ayarları İçe Aktar");
         btnIceAktar.setOnClickListener(v -> yedekDosyaSeciciAc());
         ayarlarContainer.addView(btnIceAktar);
 
-        Button btnSifirla = aktifAltOgeOlustur("e - Tüm Ayarları Sıfırla");
+        Button btnSifirla = aktifAltOgeOlustur((telefonMu ? "d" : "e") + " - Tüm Ayarları Sıfırla");
         btnSifirla.setBackgroundColor(0xFF1A3A5A);
         btnSifirla.setOnClickListener(v -> tumAyarlariSifirla());
         ayarlarContainer.addView(btnSifirla);
@@ -978,46 +988,130 @@ public class AyarlarPaneli {
     }
 
     private void tumAyarlariSifirla() {
-        new AlertDialog.Builder(activity)
+        final String mesajNormal =
+                "Gizleme, sıralama, favori ve diğer ayarlar sıfırlanacak. Emin misiniz?";
+        final String mesajTam =
+                "M3U listeleri, Stalker, Xtream hesapları ve tüm ayarlar SİLİNECEK. "
+                        + "Uygulama yeni kurulmuş gibi olacak. Emin misiniz?";
+
+        final android.widget.CheckBox cbM3u = new android.widget.CheckBox(activity);
+        cbM3u.setText("M3U liste ve ayarları");
+        cbM3u.setTextSize(16);
+        cbM3u.setFocusable(true);
+
+        LinearLayout kutu = new LinearLayout(activity);
+        kutu.setOrientation(LinearLayout.VERTICAL);
+        kutu.setPadding(dp(24), dp(8), dp(24), dp(8));
+        kutu.addView(cbM3u);
+
+        final AlertDialog dialog = new AlertDialog.Builder(activity)
                 .setTitle("Tüm Ayarları Sıfırla")
-                .setMessage("Gizleme ve sıralama ayarlarının tamamı sıfırlanacak. Emin misiniz?")
-                .setPositiveButton("Evet", (dialog, which) -> {
-                    activity.getSharedPreferences("gizli_kanallar", android.content.Context.MODE_PRIVATE)
-                            .edit().clear().apply();
-                    activity.getSharedPreferences("gizli_kategoriler", android.content.Context.MODE_PRIVATE)
-                            .edit().clear().apply();
-                    activity.getSharedPreferences("gizli_m3ular", android.content.Context.MODE_PRIVATE)
-                            .edit().clear().apply();
-                    activity.getSharedPreferences("kategori_siralama", android.content.Context.MODE_PRIVATE)
-                            .edit().clear().apply();
-                    activity.getSharedPreferences("favoriler", android.content.Context.MODE_PRIVATE)
-                            .edit().clear().apply();
-                    activity.getSharedPreferences("AppSettings", android.content.Context.MODE_PRIVATE)
-                            .edit().remove("last_played_url").apply();
-                    com.example.livetvapp.database.KategoriCache.getInstance().invalidateAll();
-                    com.example.livetvapp.database.DiziCache.getInstance().invalidateAll();
-                    if (siralamaPaneli != null) siralamaPaneli.veriGecersizKil();
-                    new Thread(() -> {
-                        try {
-                            com.example.livetvapp.database.AppDatabase db =
-                                    com.example.livetvapp.database.AppDatabase.getInstance(activity);
-                            db.channelDao().resetAllPositions();
-                            db.channelDao().deleteAllPlaybackPositions();
-                            System.out.println("✅ Tüm kanal pozisyonları sıfırlandı");
-                        } catch (Exception e) {
-                            System.out.println("❌ resetAllPositions hatası: " + e.getMessage());
-                        }
-                    }).start();
-                    if (gizleKapandiListener != null) {
-                        gizleKapandiListener.onGizleKapandi(
-                                gizlePaneli != null ? gizlePaneli.getM3uKategoriOnbellegi()
-                                        : new java.util.HashMap<>());
-                    }
-                    if (sifirlamaListener != null) sifirlamaListener.onAyarlarSifirlandı();
-                    Toast.makeText(activity, "✅ Tüm ayarlar sıfırlandı (favoriler ve son izlenen dahil)", Toast.LENGTH_SHORT).show();
-                })
+                .setMessage(mesajNormal)
+                .setView(kutu)
+                .setPositiveButton("Evet", (d, which) -> sifirlamayiUygula(cbM3u.isChecked()))
                 .setNegativeButton("İptal", null)
-                .show();
+                .create();
+
+        cbM3u.setOnCheckedChangeListener((btn, isChecked) ->
+                dialog.setMessage(isChecked ? mesajTam : mesajNormal));
+
+        dialog.show();
+    }
+
+    private void sifirlamayiUygula(final boolean tamSifirlama) {
+        // 1) Kişisel ayarlar (her iki durumda sıfırlanır)
+        String[] temizlenecekDosyalar = {
+                "gizli_kanallar", "gizli_kategoriler", "gizli_m3ular",
+                "kategori_siralama", "favoriler"
+        };
+        for (String dosya : temizlenecekDosyalar) {
+            activity.getSharedPreferences(dosya, android.content.Context.MODE_PRIVATE)
+                    .edit().clear().apply();
+        }
+        // Uygulamanın gerçek favori kaydı (FavorilerPrefs)
+        com.example.livetvapp.database.FavorilerYoneticisi.getInstance(activity).tumunuTemizle();
+
+        // Son izlenen kanal + yardım kutusu ayarı (kayıt silinince varsayılan: gösterilir)
+        activity.getSharedPreferences("AppSettings", android.content.Context.MODE_PRIVATE)
+                .edit().remove("last_played_url").remove("show_shortcut_box").apply();
+
+        // Geri/ileri sarma adımı (varsayılan: 10 sn)
+        activity.getSharedPreferences("LiveTVAppPrefs", android.content.Context.MODE_PRIVATE)
+                .edit().remove("rewindStep").remove("forwardStep").apply();
+
+        com.example.livetvapp.database.KategoriCache.getInstance().invalidateAll();
+        com.example.livetvapp.database.DiziCache.getInstance().invalidateAll();
+        if (siralamaPaneli != null) siralamaPaneli.veriGecersizKil();
+
+        // 2) Sadece kişisel ayar sıfırlamasında: gizlenmiş M3U listelerini tekrar görünür yap
+        if (!tamSifirlama) {
+            for (M3UItem m3u : m3uManager.getAllM3UItems()) {
+                if (m3u.isHidden()) m3uManager.setM3UVisibility(m3u.getName(), true);
+            }
+        }
+
+        // 3) Kutu işaretliyse: M3U, Stalker, Xtream ve kaynakla ilgili her şey silinir
+        if (tamSifirlama) {
+            m3uManager.clearAll();
+            activity.getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE)
+                    .edit().clear().apply();
+            activity.getSharedPreferences("XtreamAccounts", android.content.Context.MODE_PRIVATE)
+                    .edit().clear().apply();
+            activity.getSharedPreferences("ChannelCache", android.content.Context.MODE_PRIVATE)
+                    .edit().clear().apply();
+            com.example.livetvapp.stalker.StalkerTokenCache.getInstance().clearAll();
+        }
+
+        // 4) Veritabanı işlemleri (arka planda)
+        new Thread(() -> {
+            try {
+                com.example.livetvapp.database.AppDatabase db =
+                        com.example.livetvapp.database.AppDatabase.getInstance(activity);
+                db.channelDao().resetAllPositions();
+                db.channelDao().deleteAllPlaybackPositions();
+                if (tamSifirlama) {
+                    db.channelDao().deleteAll();
+                    db.m3uDao().deleteAll();
+                    db.stalkerPortalDao().deleteAll();
+                    db.stalkerCategoryProgressDao().deleteAll();
+                }
+                System.out.println("✅ Sıfırlama veritabanı işlemleri tamamlandı");
+            } catch (Exception e) {
+                System.out.println("❌ Sıfırlama veritabanı hatası: " + e.getMessage());
+            }
+            if (tamSifirlama) {
+                activity.runOnUiThread(() -> {
+                    Toast.makeText(activity,
+                            "✅ Uygulama yeni kurulmuş gibi sıfırlandı",
+                            Toast.LENGTH_SHORT).show();
+                    uygulamayiYenidenBaslat();
+                });
+            }
+        }).start();
+
+        // 5) Normal sıfırlamada ekranı yenile (tam sıfırlamada uygulama yeniden açılır)
+        if (!tamSifirlama) {
+            if (!DeviceDetector.isPhone(activity) && shortcutBoxListener != null) {
+                shortcutBoxListener.onVisibilityChanged(true);
+            }
+            if (gizleKapandiListener != null) {
+                gizleKapandiListener.onGizleKapandi(
+                        gizlePaneli != null ? gizlePaneli.getM3uKategoriOnbellegi()
+                                : new java.util.HashMap<>());
+            }
+            if (sifirlamaListener != null) sifirlamaListener.onAyarlarSifirlandı();
+            Toast.makeText(activity,
+                    "✅ Tüm ayarlar sıfırlandı (favoriler ve son izlenen dahil)",
+                    Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void uygulamayiYenidenBaslat() {
+        // Giriş bilgisi (azsh_giris) silinmediği için kullanıcı çıkış yapmış olmaz.
+        Intent intent = new Intent(activity, com.example.livetvapp.LauncherActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        activity.startActivity(intent);
+        activity.finish();
     }
 
     private void m3uListeleriGoster() {
@@ -1799,6 +1893,7 @@ public class AyarlarPaneli {
                                 .setTitle("İçe Aktarma Tamamlandı")
                                 .setMessage(mesaj)
                                 .setPositiveButton("Yeniden Başlat", (dialog, which) -> {
+                                    com.example.livetvapp.MainActivity.yenidenBaslatiliyor = true;
                                     activity.finishAffinity();
                                     Intent intent = new Intent(activity, com.example.livetvapp.MainActivity.class);
                                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);

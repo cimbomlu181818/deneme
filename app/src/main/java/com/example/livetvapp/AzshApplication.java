@@ -19,52 +19,56 @@ public class AzshApplication extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
-        // Android Studio'dan denerken (debug) imza kontrolu atlanir.
-        // Release surumde kontrol aynen calisir.
-        boolean debugSurum = (getApplicationInfo().flags
-                & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0;
-        if (debugSurum) {
-            Log.w("AzshApplication", "Debug surum: imza kontrolu atlandi.");
-            return;
-        }
-        if (!imzaDogruMu()) {
-            Log.e("AzshApplication", "APK imzasi beklenenle eslesmiyor. Uygulama kapatiliyor.");
-            android.os.Process.killProcess(android.os.Process.myPid());
-            System.exit(1);
+
+        // Hata günlüğü ve hata kodu penceresi (çökme yakalama dahil) — en başta kurulur.
+        HataGunlugu.baslat(this);
+
+        // Dönen değer null ise imza doğru. Değilse {hataKodu, detay}.
+        String[] sonuc = imzaKontrol();
+        if (sonuc != null) {
+            Log.e("AzshApplication", "Imza kontrolu basarisiz: " + sonuc[0]);
+            // Kullanıcıya hata kodu gösterilir; pencere kapatılınca
+            // (ya da en geç 15 sn sonra) uygulama kapanır.
+            HataGunlugu.imzaHatasi(sonuc[0], sonuc[1]);
         }
     }
 
-    private boolean imzaDogruMu() {
+    private String[] imzaKontrol() {
         try {
             PackageManager pm = getPackageManager();
             String paketAdi = getPackageName();
+            StringBuilder bulunanlar = new StringBuilder();
 
+            Signature[] signatures;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 PackageInfo pInfo = pm.getPackageInfo(paketAdi, PackageManager.GET_SIGNING_CERTIFICATES);
                 SigningInfo signingInfo = pInfo.signingInfo;
-                Signature[] signatures = signingInfo.hasMultipleSigners()
+                signatures = signingInfo.hasMultipleSigners()
                         ? signingInfo.getApkContentsSigners()
                         : signingInfo.getSigningCertificateHistory();
-                for (Signature sig : signatures) {
-                    if (BEKLENEN_IMZA_SHA256.equalsIgnoreCase(sha256Hex(sig.toByteArray()))) {
-                        return true;
-                    }
-                }
             } else {
                 @SuppressWarnings("deprecation")
                 PackageInfo pInfo = pm.getPackageInfo(paketAdi, PackageManager.GET_SIGNATURES);
                 @SuppressWarnings("deprecation")
-                Signature[] signatures = pInfo.signatures;
-                for (Signature sig : signatures) {
-                    if (BEKLENEN_IMZA_SHA256.equalsIgnoreCase(sha256Hex(sig.toByteArray()))) {
-                        return true;
-                    }
-                }
+                Signature[] eski = pInfo.signatures;
+                signatures = eski;
             }
-            return false;
+
+            if (signatures == null || signatures.length == 0) {
+                return new String[]{"E-IMZA-2", "Cihaz imza bilgisi döndürmedi (boş)."};
+            }
+            for (Signature sig : signatures) {
+                String hash = sha256Hex(sig.toByteArray());
+                if (BEKLENEN_IMZA_SHA256.equalsIgnoreCase(hash)) {
+                    return null;
+                }
+                // Tam hash yerine yalnızca ilk 12 karakter gösterilir.
+                bulunanlar.append(hash, 0, 12).append(' ');
+            }
+            return new String[]{"E-IMZA-1", "Bulunan imza: " + bulunanlar.toString().trim()};
         } catch (Exception e) {
             Log.e("AzshApplication", "Imza kontrolu sirasinda hata: " + e.getMessage());
-            return false;
+            return new String[]{"E-IMZA-2", e.getClass().getSimpleName() + ": " + e.getMessage()};
         }
     }
 

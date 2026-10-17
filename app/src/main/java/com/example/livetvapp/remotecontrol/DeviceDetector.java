@@ -39,7 +39,10 @@ public class DeviceDetector {
         String manufacturer = Build.MANUFACTURER.toLowerCase();
         String model = Build.MODEL.toLowerCase();
         String[] tvKeywords = {
-                "mibox", "xiaomi", "nvidia", "shield",
+                // "xiaomi" burada yoktu çünkü Xiaomi/Redmi/POCO telefonların üretici adı da "Xiaomi";
+                // gerçek Xiaomi TV box ve çubukları zaten leanback/TV modu ile ya da "mibox"/"mitv"
+                // model adı ile tanınır.
+                "mibox", "mitv", "nvidia", "shield",
                 "firetv", "amlogic", "rockchip", "h96",
                 "x96", "tx9", "tx3", "mecool", "minix"
         };

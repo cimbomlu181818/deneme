@@ -32,6 +32,10 @@ public class M3UParser extends AsyncTask<String, Integer, List<Channel>> {
                 }
             }
             return channels;
+        } catch (OutOfMemoryError oom) {
+            com.example.livetvapp.HataGunlugu.m3uHatasi("BELLEK", "Liste ayrıştırılırken bellek yetmedi");
+            parseException = new Exception("Bellek yetersiz (E-M3U-BELLEK)");
+            return null;
         } catch (Exception e) {
             parseException = e;
             return null;

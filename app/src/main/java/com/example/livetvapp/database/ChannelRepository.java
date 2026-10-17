@@ -73,7 +73,7 @@ public class ChannelRepository {
                 }
                 if (listener != null) listener.onChannelsLoaded(sayfa, false);
             } catch (Exception e) {
-                if (listener != null) listener.onError(e);
+                { com.example.livetvapp.HataGunlugu.listeHatasi(e); if (listener != null) listener.onError(e); }
             }
         });
     }
@@ -91,7 +91,7 @@ public class ChannelRepository {
                         (a, b) -> Integer.compare(a.getPosition(), b.getPosition()));
                 if (listener != null) listener.onChannelsLoaded(tumKanallar, false);
             } catch (Exception e) {
-                if (listener != null) listener.onError(e);
+                { com.example.livetvapp.HataGunlugu.listeHatasi(e); if (listener != null) listener.onError(e); }
             }
         });
     }
@@ -116,7 +116,7 @@ public class ChannelRepository {
                         (a, b) -> Integer.compare(a.getPosition(), b.getPosition()));
                 if (listener != null) listener.onChannelsLoaded(tumKanallar, false);
             } catch (Exception e) {
-                if (listener != null) listener.onError(e);
+                { com.example.livetvapp.HataGunlugu.listeHatasi(e); if (listener != null) listener.onError(e); }
             }
         });
     }
@@ -171,7 +171,7 @@ public class ChannelRepository {
                 }
                 if (listener != null) listener.onCategoryMapLoaded(katTurMap);
             } catch (Exception e) {
-                if (listener != null) listener.onError(e);
+                { com.example.livetvapp.HataGunlugu.listeHatasi(e); if (listener != null) listener.onError(e); }
             }
         });
     }
@@ -196,7 +196,7 @@ public class ChannelRepository {
                 }
                 if (listener != null) listener.onM3UCategoryMapLoaded(m3uKatMap);
             } catch (Exception e) {
-                if (listener != null) listener.onError(e);
+                { com.example.livetvapp.HataGunlugu.listeHatasi(e); if (listener != null) listener.onError(e); }
             }
         });
     }
@@ -206,7 +206,7 @@ public class ChannelRepository {
                 List<String> urls = database.channelDao().getAllUrls();
                 if (listener != null) listener.onUrlListLoaded(urls);
             } catch (Exception e) {
-                if (listener != null) listener.onError(e);
+                { com.example.livetvapp.HataGunlugu.listeHatasi(e); if (listener != null) listener.onError(e); }
             }
         });
     }
@@ -216,7 +216,7 @@ public class ChannelRepository {
                 List<Channel> results = database.channelDao().searchChannelsAllTypes(query);
                 if (listener != null) listener.onChannelsLoaded(results, false);
             } catch (Exception e) {
-                if (listener != null) listener.onError(e);
+                { com.example.livetvapp.HataGunlugu.listeHatasi(e); if (listener != null) listener.onError(e); }
             }
         });
     }
@@ -228,7 +228,7 @@ public class ChannelRepository {
                         .searchChannelsByTypePaged(query, contentType, ARAMA_SAYFA_BOYUTU, offset);
                 if (listener != null) listener.onChannelsLoaded(results, false);
             } catch (Exception e) {
-                if (listener != null) listener.onError(e);
+                { com.example.livetvapp.HataGunlugu.listeHatasi(e); if (listener != null) listener.onError(e); }
             }
         });
     }
@@ -248,7 +248,7 @@ public class ChannelRepository {
                 List<Channel> sonuc = database.channelDao().getChannelsByUrls(urls);
                 if (listener != null) listener.onChannelsLoaded(sonuc, false);
             } catch (Exception e) {
-                if (listener != null) listener.onError(e);
+                { com.example.livetvapp.HataGunlugu.listeHatasi(e); if (listener != null) listener.onError(e); }
             }
         });
     }
@@ -321,7 +321,7 @@ public class ChannelRepository {
                 Channel channel = database.channelDao().getChannelByName(name);
                 if (listener != null) listener.onChannelLoaded(channel);
             } catch (Exception e) {
-                if (listener != null) listener.onError(e);
+                { com.example.livetvapp.HataGunlugu.listeHatasi(e); if (listener != null) listener.onError(e); }
             }
         });
     }

@@ -22,7 +22,7 @@ public class DatabaseHelper {
                 database.channelDao().insertAll(channels);
                 if (listener != null) listener.onSuccess();
             } catch (Exception e) {
-                if (listener != null) listener.onError(e);
+                { com.example.livetvapp.HataGunlugu.listeHatasi(e); if (listener != null) listener.onError(e); }
             }
         });
     }
@@ -32,7 +32,7 @@ public class DatabaseHelper {
                 List<Channel> channels = database.channelDao().getChannelsByM3UPaginated(m3uName, limit, offset);
                 if (listener != null) listener.onChannelsLoaded(channels);
             } catch (Exception e) {
-                if (listener != null) listener.onError(e);
+                { com.example.livetvapp.HataGunlugu.listeHatasi(e); if (listener != null) listener.onError(e); }
             }
         });
     }
@@ -42,7 +42,7 @@ public class DatabaseHelper {
                 List<Channel> channels = database.channelDao().getAllChannelsByM3U(m3uName);
                 if (listener != null) listener.onChannelsLoaded(channels);
             } catch (Exception e) {
-                if (listener != null) listener.onError(e);
+                { com.example.livetvapp.HataGunlugu.listeHatasi(e); if (listener != null) listener.onError(e); }
             }
         });
     }
@@ -57,7 +57,7 @@ public class DatabaseHelper {
                 }
                 if (listener != null) listener.onChannelsLoaded(channels);
             } catch (Exception e) {
-                if (listener != null) listener.onError(e);
+                { com.example.livetvapp.HataGunlugu.listeHatasi(e); if (listener != null) listener.onError(e); }
             }
         });
     }
@@ -73,7 +73,7 @@ public class DatabaseHelper {
                 }
                 if (listener != null) listener.onChannelsLoaded(channels);
             } catch (Exception e) {
-                if (listener != null) listener.onError(e);
+                { com.example.livetvapp.HataGunlugu.listeHatasi(e); if (listener != null) listener.onError(e); }
             }
         });
     }
@@ -88,7 +88,7 @@ public class DatabaseHelper {
                 }
                 if (listener != null) listener.onCategoriesLoaded(categories);
             } catch (Exception e) {
-                if (listener != null) listener.onError(e);
+                { com.example.livetvapp.HataGunlugu.listeHatasi(e); if (listener != null) listener.onError(e); }
             }
         });
     }
@@ -140,7 +140,7 @@ public class DatabaseHelper {
                 }
                 if (listener != null) listener.onKategoriItemsLoaded(items);
             } catch (Exception e) {
-                if (listener != null) listener.onError(e);
+                { com.example.livetvapp.HataGunlugu.listeHatasi(e); if (listener != null) listener.onError(e); }
             }
         });
     }
@@ -165,7 +165,7 @@ public class DatabaseHelper {
                 }
                 if (listener != null) listener.onKategoriItemsLoaded(items);
             } catch (Exception e) {
-                if (listener != null) listener.onError(e);
+                { com.example.livetvapp.HataGunlugu.listeHatasi(e); if (listener != null) listener.onError(e); }
             }
         });
     }
@@ -175,7 +175,7 @@ public class DatabaseHelper {
                 Channel channel = database.channelDao().getChannelByUrl(url);
                 if (listener != null) listener.onChannelLoaded(channel);
             } catch (Exception e) {
-                if (listener != null) listener.onError(e);
+                { com.example.livetvapp.HataGunlugu.listeHatasi(e); if (listener != null) listener.onError(e); }
             }
         });
     }
@@ -185,7 +185,7 @@ public class DatabaseHelper {
                 database.channelDao().deleteChannelsByM3U(m3uName);
                 if (listener != null) listener.onSuccess();
             } catch (Exception e) {
-                if (listener != null) listener.onError(e);
+                { com.example.livetvapp.HataGunlugu.listeHatasi(e); if (listener != null) listener.onError(e); }
             }
         });
     }
@@ -195,7 +195,7 @@ public class DatabaseHelper {
                 int count = database.channelDao().getChannelCount(m3uName);
                 if (listener != null) listener.onCountLoaded(count);
             } catch (Exception e) {
-                if (listener != null) listener.onError(e);
+                { com.example.livetvapp.HataGunlugu.listeHatasi(e); if (listener != null) listener.onError(e); }
             }
         });
     }
@@ -205,7 +205,7 @@ public class DatabaseHelper {
                 long id = database.m3uDao().insert(m3uItem);
                 if (listener != null) listener.onM3UInserted(id);
             } catch (Exception e) {
-                if (listener != null) listener.onError(e);
+                { com.example.livetvapp.HataGunlugu.listeHatasi(e); if (listener != null) listener.onError(e); }
             }
         });
     }
@@ -215,7 +215,7 @@ public class DatabaseHelper {
                 List<M3UItem> items = database.m3uDao().getAllM3U();
                 if (listener != null) listener.onM3UListLoaded(items);
             } catch (Exception e) {
-                if (listener != null) listener.onError(e);
+                { com.example.livetvapp.HataGunlugu.listeHatasi(e); if (listener != null) listener.onError(e); }
             }
         });
     }
@@ -226,7 +226,7 @@ public class DatabaseHelper {
                 database.channelDao().deleteChannelsByM3U(m3uName);
                 if (listener != null) listener.onSuccess();
             } catch (Exception e) {
-                if (listener != null) listener.onError(e);
+                { com.example.livetvapp.HataGunlugu.listeHatasi(e); if (listener != null) listener.onError(e); }
             }
         });
     }
@@ -236,7 +236,7 @@ public class DatabaseHelper {
                 database.m3uDao().updateChannelCount(m3uName, count);
                 if (listener != null) listener.onSuccess();
             } catch (Exception e) {
-                if (listener != null) listener.onError(e);
+                { com.example.livetvapp.HataGunlugu.listeHatasi(e); if (listener != null) listener.onError(e); }
             }
         });
     }

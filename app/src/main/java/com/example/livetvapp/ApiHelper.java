@@ -166,6 +166,7 @@ public class ApiHelper {
                     return sb.toString();
                 } catch (Exception e) {
                     hataMesaji = "Bağlantı hatası: " + e.getMessage();
+                    HataGunlugu.agHatasi(endpoint, e);   // hata kodu penceresi için kayıt
                     return null;
                 }
             }
@@ -184,6 +185,7 @@ public class ApiHelper {
                         listener.onBasarili(json);
                     }
                 } catch (Exception e) {
+                    HataGunlugu.apiYanitHatasi(endpoint, sonucMetni);
                     listener.onHata("Sunucu yanıtı okunamadı.");
                 }
             }

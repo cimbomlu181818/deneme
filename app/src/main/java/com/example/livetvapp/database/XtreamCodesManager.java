@@ -157,6 +157,9 @@ public class XtreamCodesManager {
                 System.out.println("⚠️ M3U Plus başarısız: " + e.getMessage());
             }
 
+            // Neden başarısız olduğunu anlamak için hesap durumuna bak (yalnızca hata anında)
+            xtreamTeshis(finalBase, username, password);
+
             mainHandler.post(() -> {
                 if (listener != null)
                     listener.onError("Sunucuya bağlanılamadı. Bilgileri kontrol edin.");
@@ -422,7 +425,48 @@ public class XtreamCodesManager {
         void onSeriesInfoLoaded(List<com.example.livetvapp.Adapter.Sezon> sezonlar);
         void onError(String hata);
     }
+    /** Liste yüklenemediğinde hesabın giriş/süre durumunu kontrol edip hata kodu kaydeder. */
+    private static void xtreamTeshis(String baseUrl, String username, String password) {
+        try {
+            String json = fetchTextAsil(baseUrl + "/player_api.php?username=" + encode(username)
+                    + "&password=" + encode(password));
+            if (json == null || !json.trim().startsWith("{")) return;
+            org.json.JSONObject ui = new org.json.JSONObject(json).optJSONObject("user_info");
+            if (ui == null) return;
+            String auth   = ui.optString("auth", "1");
+            String status = ui.optString("status", "");
+            String exp    = ui.optString("exp_date", "");
+            if ("0".equals(auth) || "Disabled".equalsIgnoreCase(status) || "Banned".equalsIgnoreCase(status)) {
+                com.example.livetvapp.HataGunlugu.xtreamHatasi("GIRIS",
+                        "auth=" + auth + ", durum=" + status);
+                return;
+            }
+            boolean bitti = "Expired".equalsIgnoreCase(status);
+            if (!bitti && !exp.isEmpty() && !"null".equalsIgnoreCase(exp)) {
+                try {
+                    bitti = Long.parseLong(exp) < System.currentTimeMillis() / 1000L;
+                } catch (NumberFormatException ignored) {
+                }
+            }
+            if (bitti) {
+                com.example.livetvapp.HataGunlugu.xtreamHatasi("SURE",
+                        "durum=" + status + ", bitiş=" + exp);
+            }
+        } catch (Exception ignored) {
+            // ağ hatası zaten fetchText içinde kaydedildi
+        }
+    }
+
     private static String fetchText(String urlString) throws Exception {
+        try {
+            return fetchTextAsil(urlString);
+        } catch (Exception e) {
+            com.example.livetvapp.HataGunlugu.listeIndirmeHatasi(urlString, e);
+            throw e;
+        }
+    }
+
+    private static String fetchTextAsil(String urlString) throws Exception {
         URL url = new URL(urlString);
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("GET");

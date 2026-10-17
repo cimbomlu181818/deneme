@@ -23,11 +23,17 @@ public class StalkerApiClient {
                 + "?action=handshake&type=stb&token=&JsHttpRequest=1-xml";
         JSONObject resp = doGet(urlStr, mac, null);
         Log.d(TAG, "Handshake yanıtı: " + resp.toString());
-        if (!resp.has("js")) throw new Exception("Handshake: 'js' alanı yok");
+        if (!resp.has("js")) {
+            com.example.livetvapp.HataGunlugu.stalkerTokenHatasi("Handshake yanıtında 'js' alanı yok");
+            throw new Exception("Handshake: 'js' alanı yok");
+        }
         Object jsObj = resp.get("js");
         if (jsObj instanceof JSONObject) {
             String token = ((JSONObject) jsObj).optString("token", "");
-            if (token.isEmpty()) throw new Exception("Handshake: token boş");
+            if (token.isEmpty()) {
+                com.example.livetvapp.HataGunlugu.stalkerTokenHatasi("Handshake yanıtında token boş");
+                throw new Exception("Handshake: token boş");
+            }
         }
         return resp;
     }
@@ -212,7 +218,11 @@ public class StalkerApiClient {
         if (token != null && !token.isEmpty())
             conn.setRequestProperty("Authorization", "Bearer " + token);
         int code = conn.getResponseCode();
-        if (code != 200) throw new Exception("HTTP " + code + " — URL: " + urlStr);
+        if (code != 200) {
+            Exception httpHata = new Exception("HTTP " + code);
+            com.example.livetvapp.HataGunlugu.sunucuHatasi("STK", urlStr, httpHata);
+            throw new Exception("HTTP " + code + " — URL: " + urlStr);
+        }
         BufferedReader r = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
         StringBuilder sb = new StringBuilder();
         String line;

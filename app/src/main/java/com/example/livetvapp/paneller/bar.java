@@ -588,6 +588,8 @@ public class bar {
     public void goster() {
         if (playerControls == null) return;
         playerControls.setVisibility(View.VISIBLE);
+        loadStepPreferences();
+        updateStepButtonsText();
         if (btnPlayPause != null && mediaPlayer != null) {
             btnPlayPause.setText(mediaPlayer.isPlaying() ? "⏸" : "▶");
         }

@@ -30,4 +30,9 @@ public class StalkerTokenCache {
         tokenMap.remove(portalId);
         expiryMap.remove(portalId);
     }
+
+    public void clearAll() {
+        tokenMap.clear();
+        expiryMap.clear();
+    }
 }

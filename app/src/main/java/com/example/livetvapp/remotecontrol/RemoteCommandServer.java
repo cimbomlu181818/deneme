@@ -111,6 +111,7 @@ public class RemoteCommandServer {
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Discovery listener başlatma hatası", e);
+                com.example.livetvapp.HataGunlugu.sunucuSoketHatasi("UZAK", e);
             }
         });
     }
@@ -134,6 +135,7 @@ public class RemoteCommandServer {
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Komut server başlatma hatası", e);
+                com.example.livetvapp.HataGunlugu.sunucuSoketHatasi("UZAK", e);
             }
         });
     }

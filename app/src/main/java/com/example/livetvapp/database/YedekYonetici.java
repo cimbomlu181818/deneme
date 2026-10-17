@@ -233,6 +233,7 @@ public class YedekYonetici {
                                 + stalkerProgress.size() + " kategori ilerleme kaydedildi."));
             } catch (Exception e) {
                 System.out.println("❌ disaAktar hatası: " + e.getMessage());
+                com.example.livetvapp.HataGunlugu.yedekHatasi(true, e);
                 mainHandler.post(() -> callback.onHata("❌ GENEL hatası: " + e.getMessage()));
             }
         });
@@ -472,6 +473,7 @@ public class YedekYonetici {
                                 + "Uygulamayı yeniden başlatın."));
             } catch (Exception e) {
                 System.out.println("❌ iceAktar hatası: " + e.getMessage());
+                com.example.livetvapp.HataGunlugu.yedekHatasi(false, e);
                 mainHandler.post(() -> callback.onHata("❌ İçe aktarma hatası: " + e.getMessage()));
             }
         });

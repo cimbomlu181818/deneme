@@ -22,6 +22,8 @@ public class RemoteControlActivity extends AppCompatActivity {
     private View keyboardPanel;
     private EditText etRemoteInput;
     private boolean isKeyboardMode = false;
+    private boolean arkaplanaAlindi = false;
+    private androidx.appcompat.app.AlertDialog kopmaDialog;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -133,11 +135,15 @@ public class RemoteControlActivity extends AppCompatActivity {
     }
 
     private void connectToDevice() {
-        client = new RemoteControlClient();
-        client.connect(targetDevice, new RemoteControlClient.ConnectionCallback() {
+        if (client != null) client.disconnect();
+        final RemoteControlClient yeniClient = new RemoteControlClient();
+        client = yeniClient;
+        statusText.setText("Bağlanıyor: " + targetDevice.getName());
+        yeniClient.connect(targetDevice, new RemoteControlClient.ConnectionCallback() {
             @Override
             public void onConnected() {
                 runOnUiThread(() -> {
+                    if (client != yeniClient) return;
                     statusText.setText("Bağlandı: " + targetDevice.getName());
                     findViewById(R.id.controlsContainer).setVisibility(View.VISIBLE);
                 });
@@ -145,21 +151,53 @@ public class RemoteControlActivity extends AppCompatActivity {
             @Override
             public void onDisconnected() {
                 runOnUiThread(() -> {
+                    if (client != yeniClient) return;
                     statusText.setText("Bağlantı kesildi");
                     findViewById(R.id.controlsContainer).setVisibility(View.GONE);
                     if (isKeyboardMode) stopKeyboardMode();
+                    kopmaDiyaloguGoster();
                 });
             }
             @Override
             public void onConnectionFailed(String error) {
                 runOnUiThread(() -> {
-                    statusText.setText("Bağlantı başarısız: " + error);
-                    Toast.makeText(RemoteControlActivity.this, "Bağlantı kurulamadı", Toast.LENGTH_LONG).show();
+                    if (client != yeniClient) return;
+                    statusText.setText("Bağlantı başarısız");
                     findViewById(R.id.controlsContainer).setVisibility(View.GONE);
                     if (isKeyboardMode) stopKeyboardMode();
+                    kopmaDiyaloguGoster();
                 });
             }
         });
+    }
+
+    private void kopmaDiyaloguGoster() {
+        if (isFinishing() || isDestroyed()) return;
+        if (kopmaDialog != null && kopmaDialog.isShowing()) return;
+        kopmaDialog = new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Bağlantı koptu")
+                .setMessage(targetDevice.getName() + " cihazına bağlanılamadı.")
+                .setCancelable(false)
+                .setPositiveButton("Yeniden bağlan", (d, w) -> connectToDevice())
+                .setNegativeButton("Kapat", (d, w) -> finish())
+                .show();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        if (!isChangingConfigurations()) arkaplanaAlindi = true;
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        if (arkaplanaAlindi) {
+            arkaplanaAlindi = false;
+            // Arka plandan dönünce bağlantıyı bir kez yeniler
+            if (isKeyboardMode) stopKeyboardMode();
+            connectToDevice();
+        }
     }
 
     private void sendCommand(String command) {
@@ -177,6 +215,7 @@ public class RemoteControlActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (kopmaDialog != null && kopmaDialog.isShowing()) kopmaDialog.dismiss();
         if (isChangingConfigurations()) {
             return;
         }

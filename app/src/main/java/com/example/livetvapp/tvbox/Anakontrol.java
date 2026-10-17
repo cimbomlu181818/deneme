@@ -219,8 +219,14 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
         options.add("--fullscreen");
         options.add("--vout=android-opaque");
         options.add("--android-display-chroma=RV32");
-        libVLC = new LibVLC(activity, options);
-        mediaPlayer = new MediaPlayer(libVLC);
+        try {
+            libVLC = new LibVLC(activity, options);
+            mediaPlayer = new MediaPlayer(libVLC);
+        } catch (Throwable vlcHata) {
+            // Oynatıcı oluşturulamadı: kullanıcıya hata kodu göster (E-NATIVE / E-OYN-BASLAT)
+            com.example.livetvapp.HataGunlugu.oynaticiBaslatmaHatasi(vlcHata);
+            return;
+        }
         vlcEventDinleyicisiBaslat();
         videoLayout.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
             @Override
@@ -1605,7 +1611,13 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
             String m3uContent = readM3UFromFile(dosyaYolu);
             if (m3uContent == null || m3uContent.isEmpty()) {
                 Toast.makeText(activity, "Dosya okunamadı!", Toast.LENGTH_SHORT).show();
+                com.example.livetvapp.HataGunlugu.m3uHatasi("DOSYA", "Dosya boş ya da okunamadı: "
+                        + new File(dosyaYolu).getName());
                 return;
+            }
+            if (!m3uContent.contains("#EXTM3U") && !m3uContent.contains("#EXTINF")) {
+                com.example.livetvapp.HataGunlugu.m3uHatasi("BICIM", "Dosya: "
+                        + new File(dosyaYolu).getName() + " | #EXTM3U/#EXTINF satırı bulunamadı");
             }
             String dosyaAdi = new File(dosyaYolu).getName()
                     .replace(".m3u", "").replace(".m3u8", "").replace(".txt", "").trim();
@@ -1663,6 +1675,8 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
                     mainHandler.post(() -> {
                         if (yeniKanallar == null || yeniKanallar.isEmpty()) {
                             Toast.makeText(activity, "Dosyada kanal bulunamadı!", Toast.LENGTH_SHORT).show();
+                            com.example.livetvapp.HataGunlugu.m3uHatasi("BOS", "Dosyada kanal bulunamadı: "
+                                    + new File(dosyaYolu).getName());
                             return;
                         }
                         com.example.livetvapp.database.M3UItem m3uItem =
@@ -1725,6 +1739,8 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
                 }
                 @Override
                 public void onParseError(Exception e) {
+                    com.example.livetvapp.HataGunlugu.m3uHatasi("BICIM", "Ayrıştırma hatası: "
+                            + e.getClass().getSimpleName() + ": " + e.getMessage());
                     mainHandler.post(() ->
                             Toast.makeText(activity, "M3U parse hatası: " + e.getMessage(), Toast.LENGTH_LONG).show());
                     if (ayarlarPaneli != null && ayarlarPaneli.getYuklemeListener() != null)
@@ -1871,7 +1887,11 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
             while ((line = reader.readLine()) != null) builder.append(line).append("\n");
             reader.close();
             return builder.toString();
+        } catch (OutOfMemoryError oom) {
+            com.example.livetvapp.HataGunlugu.m3uHatasi("BELLEK", "Dosya okunurken bellek yetmedi");
+            return null;
         } catch (Exception e) {
+            com.example.livetvapp.HataGunlugu.dosyaHatasi("E-M3U-DOSYA", e);
             e.printStackTrace();
             return null;
         }
@@ -2992,7 +3012,7 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
                         streamTimeoutIptal();
                         yuklemeOverlayGizle();
                         if (streamMonitor != null) streamMonitor.onStreamError();
-
+                        com.example.livetvapp.HataGunlugu.oynatmaHatasi(aktifStreamUrl, false);
                     });
                     break;
                 case MediaPlayer.Event.EndReached:
@@ -3068,6 +3088,7 @@ public class Anakontrol implements StreamMonitor.StreamMonitorListener {
             streamTimeoutRunnable = null;
             if (!streamOynuyor) {
                 yuklemeOverlayGizle();
+                com.example.livetvapp.HataGunlugu.oynatmaHatasi(url, true);
                 if (streamMonitor != null) {
                     streamMonitor.onTimeoutExpired();
                 } else {

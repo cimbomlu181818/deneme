@@ -63,11 +63,15 @@ public class MainActivity extends AppCompatActivity {
     private boolean kendiFinishCagrildi = false;
     // Geri tusuyla cikista sureci tamamen sonlandir
     private boolean surecSonlandir = false;
+    // Yedek yukleme sonrasi "Yeniden Baslat" icin: eski activity kapanirken sureci OLDURME
+    public static volatile boolean yenidenBaslatiliyor = false;
 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-
+        // super.onCreate her durumda ilk çağrılmalı: aşağıda giriş yoksa return ediliyor,
+        // super çağrılmadan çıkmak SuperNotCalledException (E-COKME) ile çökertir.
+        super.onCreate(savedInstanceState);
 
         String deviceType = DeviceDetector.getDeviceTypeString(this);
         Log.d("DEVICE_TYPE", "Cihaz Tipi: " + deviceType);
@@ -125,8 +129,6 @@ public class MainActivity extends AppCompatActivity {
                 finish();
             }
         });
-
-        super.onCreate(savedInstanceState);
 
         database = AppDatabase.getInstance(this);
         System.out.println("✅ Database initialized");
@@ -536,7 +538,9 @@ public class MainActivity extends AppCompatActivity {
             boolean handled = anakontrol.onKeyDown(keyCode, event);
             if (handled) return true;
             if (keyCode == KeyEvent.KEYCODE_BACK || keyCode == KeyEvent.KEYCODE_ESCAPE) {
-                surecSonlandir = true;
+                // Telefonda altta LauncherActivity (Kumanda/Dosya Yoneticisi/Player ekrani)
+                // varsa sureci oldurme, o ekrana don. Sadece en alttaki activity ise kapat.
+                surecSonlandir = isTaskRoot();
                 finish();
                 return true;
             }
@@ -626,7 +630,10 @@ public class MainActivity extends AppCompatActivity {
         // Son uygulamalar'dan silinince (finish() cagrilmadan yok edilir) veya
         // geri tusuyla cikilinca sureci tamamen sonlandir.
         // Giris ekranina yonlendirme gibi normal finish() cagrilarinda sonlandirilmaz.
-        if (isFinishing() && (surecSonlandir || !kendiFinishCagrildi)) {
+        if (yenidenBaslatiliyor) {
+            // Yeniden baslatma: yeni MainActivity ayni surecte aciliyor, sureci oldurme
+            yenidenBaslatiliyor = false;
+        } else if (isFinishing() && (surecSonlandir || !kendiFinishCagrildi)) {
             android.os.Process.killProcess(android.os.Process.myPid());
         }
     }

@@ -10,6 +10,10 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.*;
 public class KanalListesi {
+    /** Gelen içerik geçerli bir M3U değil (#EXTM3U başlığı yok). */
+    private static class M3UBicimHatasi extends Exception {
+        M3UBicimHatasi(String bas) { super(bas); }
+    }
     private static final String CHANNEL_CACHE_KEY = "cached_channels";
     private static final String PREFS_NAME = "ChannelCache";
     private static final String M3U_CHANNEL_PREFIX = "channels_m3u_";
@@ -78,16 +82,31 @@ public class KanalListesi {
             connection.setRequestMethod("GET");
             connection.setConnectTimeout(10000);
             connection.setReadTimeout(10000);
-            if (connection.getResponseCode() == HttpURLConnection.HTTP_OK) {
+            int httpKodu = connection.getResponseCode();
+            if (httpKodu == HttpURLConnection.HTTP_OK) {
                 InputStream inputStream = connection.getInputStream();
                 BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
                 String sourceName = extractSourceNameFromUrl(urlString);
                 channels = parseM3UFromReader(reader, sourceName);
                 reader.close();
                 inputStream.close();
+                if (channels.isEmpty()) {
+                    HataGunlugu.m3uHatasi("BOS", "Sunucu: " + extractSourceNameFromUrl(urlString)
+                            + " | Liste geçerli ama içinde kanal yok");
+                }
+            } else {
+                // 401/403/404/5xx gibi durumlar: kullanıcıya hata kodu gösterilir
+                HataGunlugu.listeIndirmeHatasi(urlString, new Exception("HTTP " + httpKodu));
             }
+        } catch (M3UBicimHatasi e) {
+            HataGunlugu.m3uHatasi("BICIM", "Sunucu: " + extractSourceNameFromUrl(urlString)
+                    + " | Başlangıç: " + e.getMessage());
+        } catch (OutOfMemoryError e) {
+            channels = new ArrayList<>();
+            HataGunlugu.m3uHatasi("BELLEK", "Sunucu: " + extractSourceNameFromUrl(urlString));
         } catch (Exception e) {
             e.printStackTrace();
+            HataGunlugu.listeIndirmeHatasi(urlString, e);
         }
         return channels;
     }
@@ -122,7 +141,9 @@ public class KanalListesi {
         List<Channel> channels = new ArrayList<>();
         String firstLine = reader.readLine();
         if (firstLine == null || !firstLine.trim().startsWith("#EXTM3U")) {
-            return channels; 
+            String bas = firstLine == null ? "(boş yanıt)" : firstLine.trim();
+            if (bas.length() > 40) bas = bas.substring(0, 40);
+            throw new M3UBicimHatasi(bas);
         }
         Channel currentChannel = null;
         String currentExtinfLine = null;
