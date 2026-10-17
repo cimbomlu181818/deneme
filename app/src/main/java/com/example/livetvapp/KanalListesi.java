@@ -19,12 +19,12 @@ public class KanalListesi {
     private static final String M3U_CHANNEL_PREFIX = "channels_m3u_";
     public static void saveChannelsForM3U(Context context, List<Channel> channels, String m3uName) {
         try {
-            
+
             AppDatabase db = AppDatabase.getInstance(context);
             db.channelDao().deleteChannelsByM3U(m3uName);
             System.out.println("🗑️ Eski kanallar silindi: " + m3uName);
 
-            
+
             SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
             SharedPreferences.Editor editor = prefs.edit();
             Gson gson = new Gson();
@@ -34,7 +34,7 @@ public class KanalListesi {
             editor.putString(CHANNEL_CACHE_KEY, json);
             editor.apply();
 
-            
+
             DatabaseHelper dbHelper = new DatabaseHelper(context);
             dbHelper.insertChannels(channels, new DatabaseHelper.OnCompleteListener() {
                 @Override
@@ -106,6 +106,10 @@ public class KanalListesi {
             HataGunlugu.m3uHatasi("BELLEK", "Sunucu: " + extractSourceNameFromUrl(urlString));
         } catch (Exception e) {
             e.printStackTrace();
+            // https ile güvenli bağlantı kurulamazsa aynı adresi bir kez http ile dene
+            if (e instanceof javax.net.ssl.SSLException && urlString.startsWith("https://")) {
+                return getChannelsFromUrl("http://" + urlString.substring(8));
+            }
             HataGunlugu.listeIndirmeHatasi(urlString, e);
         }
         return channels;

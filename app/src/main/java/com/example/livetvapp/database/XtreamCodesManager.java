@@ -357,8 +357,9 @@ public class XtreamCodesManager {
             String[] parts = u.getPath().split("/");
 
             if (parts.length >= 4) {
-                username = parts[2];
-                password = parts[3];
+                // URL.getPath() ham (encode edilmiş) döner; tekrar encode etmeden önce çöz
+                username = decode(parts[2]);
+                password = decode(parts[3]);
             }
         } catch (Exception e) {
             if (listener != null) listener.onError("Sunucu bilgisi çıkarılamadı");
@@ -486,6 +487,16 @@ public class XtreamCodesManager {
         conn.disconnect();
         String result = sb.toString().trim();
         return result.isEmpty() ? null : result;
+    }
+
+    /** URL yolundan gelen %XX'li değeri düz metne çevirir ('+' işareti korunur). */
+    private static String decode(String s) {
+        if (s == null) return null;
+        try {
+            return java.net.URLDecoder.decode(s.replace("+", "%2B"), "UTF-8");
+        } catch (Exception e) {
+            return s;
+        }
     }
 
     private static String encode(String s) {

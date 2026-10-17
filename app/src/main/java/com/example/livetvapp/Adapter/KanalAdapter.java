@@ -49,7 +49,8 @@ public class KanalAdapter extends RecyclerView.Adapter<KanalAdapter.KanalViewHol
     }
     public KanalAdapter(KanalSecimDinleyici dinleyici) {
         this.dinleyici = dinleyici;
-        setHasStableIds(true);
+        // Aynı kanal listede birden fazla geçebildiği için kararlı ID kapalı (çökme önlemi)
+        setHasStableIds(false);
     }
     public void setFavorilerYoneticisi(FavorilerYoneticisi fy, String icerikTipi) {
         this.favorilerYoneticisi = fy;
@@ -183,24 +184,24 @@ public class KanalAdapter extends RecyclerView.Adapter<KanalAdapter.KanalViewHol
         }
 
         void bind(Channel kanal, int position) {
-            
+
             String ad = gorunumAdi(kanal);
             button.setText((position + 1) + " - " + ad);
             button.setTag(kanal);
 
             boolean isAktif = kanal.getUrl() != null && kanal.getUrl().equals(aktifKanalUrl);
 
-            
+
             button.setBackgroundResource(R.drawable.kanal_button_background);
             button.setScaleX(1.0f);
             button.setScaleY(1.0f);
             button.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
             button.setTypeface(button.getTypeface(), Typeface.NORMAL);
 
-            
+
             button.setOnFocusChangeListener((v, hasFocus) -> {
                 if (hasFocus) {
-                    
+
                     button.setBackgroundResource(R.drawable.kanal_button_focused);
                     button.setScaleX(1.02f);
                     button.setScaleY(1.02f);
@@ -213,7 +214,7 @@ public class KanalAdapter extends RecyclerView.Adapter<KanalAdapter.KanalViewHol
                         focusDegistiListener.onFocusDegisti(kanal);
                     }
                 } else {
-                    
+
                     button.setBackgroundResource(R.drawable.kanal_button_background);
                     button.setScaleX(1.0f);
                     button.setScaleY(1.0f);
@@ -222,7 +223,7 @@ public class KanalAdapter extends RecyclerView.Adapter<KanalAdapter.KanalViewHol
                 }
             });
 
-            
+
             button.setOnClickListener(v -> {
                 int pos = getAdapterPosition();
                 if (pos == RecyclerView.NO_POSITION) return;
